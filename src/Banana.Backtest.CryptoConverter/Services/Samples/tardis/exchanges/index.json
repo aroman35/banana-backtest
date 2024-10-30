@@ -1,0 +1,997 @@
+[
+  {
+    "id": "bitmex",
+    "name": "BitMEX",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-03-30T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "orderBookL2",
+      "liquidation",
+      "connected",
+      "announcement",
+      "chat",
+      "publicNotifications",
+      "instrument",
+      "settlement",
+      "funding",
+      "insurance",
+      "orderBookL2_25",
+      "orderBook10",
+      "quote",
+      "quoteBin1m",
+      "quoteBin5m",
+      "quoteBin1h",
+      "quoteBin1d",
+      "tradeBin1m",
+      "tradeBin5m",
+      "tradeBin1h",
+      "tradeBin1d"
+    ]
+  },
+  {
+    "id": "deribit",
+    "name": "Deribit",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-03-30T00:00:00.000Z",
+    "availableChannels": [
+      "book",
+      "deribit_price_index",
+      "deribit_price_ranking",
+      "deribit_volatility_index",
+      "estimated_expiration_price",
+      "markprice.options",
+      "perpetual",
+      "trades",
+      "ticker",
+      "quote",
+      "platform_state",
+      "instrument.state.any"
+    ]
+  },
+  {
+    "id": "binance-futures",
+    "name": "Binance USDT Futures",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-11-17T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "aggTrade",
+      "ticker",
+      "depth",
+      "depthSnapshot",
+      "markPrice",
+      "bookTicker",
+      "forceOrder",
+      "openInterest",
+      "recentTrades",
+      "compositeIndex",
+      "assetIndex",
+      "topLongShortAccountRatio",
+      "topLongShortPositionRatio",
+      "globalLongShortAccountRatio",
+      "takerlongshortRatio"
+    ]
+  },
+  {
+    "id": "binance-delivery",
+    "name": "Binance COIN Futures",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2020-06-16T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "aggTrade",
+      "ticker",
+      "depth",
+      "depthSnapshot",
+      "markPrice",
+      "indexPrice",
+      "bookTicker",
+      "forceOrder",
+      "openInterest",
+      "recentTrades",
+      "topLongShortAccountRatio",
+      "topLongShortPositionRatio",
+      "globalLongShortAccountRatio",
+      "takerBuySellVol"
+    ]
+  },
+  {
+    "id": "binance-options",
+    "name": "Binance Vanilla Options",
+    "enabled": true,
+    "delisted": true,
+    "supportsDatasets": true,
+    "availableSince": "2021-03-01T00:00:00.000Z",
+    "availableTo": "2022-07-02T00:00:00.000Z",
+    "availableChannels": [
+      "TRADE",
+      "TICKER",
+      "DEPTH100",
+      "INDEX"
+    ]
+  },
+  {
+    "id": "binance-european-options",
+    "name": "Binance European Options",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2023-06-15T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "depth100",
+      "index",
+      "markPrice",
+      "ticker",
+      "openInterest"
+    ]
+  },
+  {
+    "id": "binance",
+    "name": "Binance Spot",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-03-30T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "aggTrade",
+      "ticker",
+      "depth",
+      "depthSnapshot",
+      "bookTicker",
+      "recentTrades",
+      "borrowInterest",
+      "tokenNav"
+    ]
+  },
+  {
+    "id": "ftx",
+    "name": "FTX",
+    "enabled": true,
+    "delisted": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-08-01T00:00:00.000Z",
+    "availableTo": "2022-11-13T00:00:00.000Z",
+    "availableChannels": [
+      "orderbook",
+      "trades",
+      "instrument",
+      "markets",
+      "orderbookGrouped",
+      "lendingRate",
+      "borrowRate",
+      "borrowSummary",
+      "ticker",
+      "leveragedTokenInfo",
+      "busy"
+    ]
+  },
+  {
+    "id": "okex-futures",
+    "name": "OKX Futures",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-03-30T00:00:00.000Z",
+    "availableChannels": [
+      "futures/trade",
+      "futures/depth",
+      "futures/depth_l2_tbt",
+      "futures/ticker",
+      "futures/mark_price",
+      "futures/liquidation",
+      "index/ticker",
+      "system/status",
+      "information/sentiment",
+      "information/long_short_ratio",
+      "information/margin",
+      "trades",
+      "trades-all",
+      "books-l2-tbt",
+      "bbo-tbt",
+      "books",
+      "tickers",
+      "open-interest",
+      "mark-price",
+      "price-limit",
+      "status",
+      "instruments",
+      "index-tickers",
+      "long-short-account-ratio",
+      "taker-volume",
+      "liquidations",
+      "estimated-price",
+      "public-block-trades",
+      "public-struc-block-trades",
+      "liquidation-orders",
+      "taker-volume-contract",
+      "long-short-account-ratio-contract-top-trader",
+      "long-short-position-ratio-contract-top-trader",
+      "long-short-account-ratio-contract"
+    ]
+  },
+  {
+    "id": "okex-options",
+    "name": "OKX Options",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2020-02-01T00:00:00.000Z",
+    "availableChannels": [
+      "option/trade",
+      "option/depth",
+      "option/depth_l2_tbt",
+      "option/ticker",
+      "option/summary",
+      "option/instruments",
+      "index/ticker",
+      "system/status",
+      "option/trades",
+      "trades",
+      "trades-all",
+      "books-l2-tbt",
+      "bbo-tbt",
+      "books",
+      "tickers",
+      "opt-summary",
+      "status",
+      "instruments",
+      "index-tickers",
+      "open-interest",
+      "mark-price",
+      "price-limit",
+      "estimated-price",
+      "public-block-trades",
+      "public-struc-block-trades",
+      "option-trades"
+    ]
+  },
+  {
+    "id": "okex-swap",
+    "name": "OKX Swap",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-03-30T00:00:00.000Z",
+    "availableChannels": [
+      "swap/trade",
+      "swap/depth",
+      "swap/depth_l2_tbt",
+      "swap/ticker",
+      "swap/funding_rate",
+      "swap/mark_price",
+      "swap/liquidation",
+      "index/ticker",
+      "system/status",
+      "information/sentiment",
+      "information/long_short_ratio",
+      "information/margin",
+      "trades",
+      "trades-all",
+      "books-l2-tbt",
+      "bbo-tbt",
+      "books",
+      "tickers",
+      "open-interest",
+      "mark-price",
+      "price-limit",
+      "funding-rate",
+      "status",
+      "instruments",
+      "index-tickers",
+      "long-short-account-ratio",
+      "taker-volume",
+      "liquidations",
+      "public-block-trades",
+      "public-struc-block-trades",
+      "liquidation-orders",
+      "taker-volume-contract",
+      "long-short-account-ratio-contract-top-trader",
+      "long-short-position-ratio-contract-top-trader",
+      "long-short-account-ratio-contract"
+    ]
+  },
+  {
+    "id": "okex",
+    "name": "OKX Spot",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-03-30T00:00:00.000Z",
+    "availableChannels": [
+      "spot/trade",
+      "spot/depth",
+      "spot/depth_l2_tbt",
+      "spot/ticker",
+      "system/status",
+      "margin/interest_rate",
+      "trades",
+      "trades-all",
+      "books-l2-tbt",
+      "bbo-tbt",
+      "books",
+      "tickers",
+      "interest-rate-loan-quota",
+      "vip-interest-rate-loan-quota",
+      "status",
+      "instruments",
+      "taker-volume",
+      "liquidations",
+      "public-block-trades",
+      "public-struc-block-trades",
+      "loan-ratio"
+    ]
+  },
+  {
+    "id": "okex-spreads",
+    "name": "OKX Nitro Spreads",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2023-12-22T00:00:00.000Z",
+    "availableChannels": [
+      "sprd-public-trades",
+      "sprd-bbo-tbt",
+      "sprd-books5",
+      "sprd-tickers"
+    ]
+  },
+  {
+    "id": "huobi-dm",
+    "name": "Huobi Futures",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-11-19T00:00:00.000Z",
+    "availableChannels": [
+      "depth",
+      "detail",
+      "trade",
+      "bbo",
+      "basis",
+      "liquidation_orders",
+      "contract_info",
+      "open_interest",
+      "elite_account_ratio",
+      "elite_position_ratio"
+    ]
+  },
+  {
+    "id": "huobi-dm-swap",
+    "name": "Huobi COIN Swaps",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2020-03-28T00:00:00.000Z",
+    "availableChannels": [
+      "depth",
+      "detail",
+      "trade",
+      "bbo",
+      "basis",
+      "funding_rate",
+      "liquidation_orders",
+      "contract_info",
+      "open_interest",
+      "elite_account_ratio",
+      "elite_position_ratio"
+    ]
+  },
+  {
+    "id": "huobi-dm-linear-swap",
+    "name": "Huobi USDT Swaps",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2020-10-30T00:00:00.000Z",
+    "availableChannels": [
+      "depth",
+      "detail",
+      "trade",
+      "bbo",
+      "basis",
+      "funding_rate",
+      "liquidation_orders",
+      "contract_info",
+      "open_interest",
+      "elite_account_ratio",
+      "elite_position_ratio"
+    ]
+  },
+  {
+    "id": "huobi-dm-options",
+    "name": "Huobi Options",
+    "enabled": true,
+    "delisted": true,
+    "supportsDatasets": true,
+    "availableSince": "2021-02-01T00:00:00.000Z",
+    "availableTo": "2021-06-26T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "detail",
+      "depth",
+      "bbo",
+      "open_interest",
+      "option_market_index",
+      "option_index"
+    ]
+  },
+  {
+    "id": "huobi",
+    "name": "Huobi Global",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-11-19T00:00:00.000Z",
+    "availableChannels": [
+      "depth",
+      "detail",
+      "trade",
+      "bbo",
+      "mbp",
+      "etp",
+      "mbp.20"
+    ]
+  },
+  {
+    "id": "bitfinex-derivatives",
+    "name": "Bitfinex Derivatives",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-09-14T00:00:00.000Z",
+    "availableChannels": [
+      "trades",
+      "book",
+      "raw_book",
+      "status",
+      "liquidations",
+      "ticker"
+    ]
+  },
+  {
+    "id": "bitfinex",
+    "name": "Bitfinex",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-05-23T00:00:00.000Z",
+    "availableChannels": [
+      "trades",
+      "book",
+      "raw_book",
+      "ticker"
+    ]
+  },
+  {
+    "id": "coinbase",
+    "name": "Coinbase Pro",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-03-30T00:00:00.000Z",
+    "availableChannels": [
+      "match",
+      "subscriptions",
+      "received",
+      "open",
+      "done",
+      "change",
+      "l2update",
+      "ticker",
+      "snapshot",
+      "last_match",
+      "full_snapshot",
+      "rfq_matches"
+    ]
+  },
+  {
+    "id": "cryptofacilities",
+    "name": "Kraken Futures (Crypto Facilities)",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-03-30T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "trade_snapshot",
+      "book",
+      "book_snapshot",
+      "ticker",
+      "heartbeat"
+    ]
+  },
+  {
+    "id": "kraken",
+    "name": "Kraken",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-06-04T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "ticker",
+      "book",
+      "spread"
+    ]
+  },
+  {
+    "id": "bitstamp",
+    "name": "Bitstamp",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-03-30T00:00:00.000Z",
+    "availableChannels": [
+      "live_trades",
+      "live_orders",
+      "diff_order_book"
+    ]
+  },
+  {
+    "id": "gemini",
+    "name": "Gemini",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-08-30T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "l2_updates",
+      "auction_open",
+      "auction_indicative",
+      "auction_result"
+    ]
+  },
+  {
+    "id": "poloniex",
+    "name": "Poloniex",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2020-07-01T00:00:00.000Z",
+    "availableChannels": [
+      "price_aggregated_book",
+      "trades",
+      "ticker",
+      "book_lv2"
+    ]
+  },
+  {
+    "id": "upbit",
+    "name": "Upbit",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2021-03-03T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "orderbook",
+      "ticker"
+    ]
+  },
+  {
+    "id": "bybit",
+    "name": "Bybit Derivatives",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-11-07T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "instrument_info",
+      "orderBookL2_25",
+      "insurance",
+      "orderBook_200",
+      "liquidation",
+      "long_short_ratio",
+      "orderbook.1",
+      "orderbook.50",
+      "orderbook.500",
+      "publicTrade",
+      "tickers",
+      "liquidation"
+    ]
+  },
+  {
+    "id": "bybit-spot",
+    "name": "Bybit Spot",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2021-12-04T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "bookTicker",
+      "depth",
+      "orderbook.1",
+      "orderbook.50",
+      "publicTrade",
+      "tickers",
+      "lt"
+    ]
+  },
+  {
+    "id": "bybit-options",
+    "name": "Bybit Options",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2023-04-05T00:00:00.000Z",
+    "availableChannels": [
+      "orderbook.25",
+      "orderbook.100",
+      "publicTrade",
+      "tickers"
+    ]
+  },
+  {
+    "id": "phemex",
+    "name": "Phemex",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2020-03-17T00:00:00.000Z",
+    "availableChannels": [
+      "book",
+      "orderbook_p",
+      "trades",
+      "trades_p",
+      "market24h",
+      "spot_market24h",
+      "perp_market24h_pack_p"
+    ]
+  },
+  {
+    "id": "ascendex",
+    "name": "AscendEX (BitMax)",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2021-03-28T00:00:00.000Z",
+    "availableChannels": [
+      "trades",
+      "depth-realtime",
+      "depth-snapshot-realtime",
+      "bbo",
+      "futures-pricing-data"
+    ]
+  },
+  {
+    "id": "kucoin",
+    "name": "KuCoin Spot",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2022-08-16T00:00:00.000Z",
+    "availableChannels": [
+      "market/ticker",
+      "market/snapshot",
+      "market/level2",
+      "market/match",
+      "market/level2Snapshot"
+    ]
+  },
+  {
+    "id": "kucoin-futures",
+    "name": "KuCoin Futures",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2024-01-25T00:00:00.000Z",
+    "availableChannels": [
+      "contractMarket/execution",
+      "contractMarket/level2",
+      "contractMarket/level2Snapshot",
+      "contractMarket/tickerV2",
+      "contract/instrument",
+      "contract/details",
+      "contractMarket/snapshot"
+    ]
+  },
+  {
+    "id": "serum",
+    "name": "Serum DEX",
+    "enabled": true,
+    "delisted": true,
+    "supportsDatasets": true,
+    "availableSince": "2021-06-23T00:00:00.000Z",
+    "availableTo": "2022-11-13T00:00:00.000Z",
+    "availableChannels": [
+      "recent_trades",
+      "trade",
+      "quote",
+      "l2snapshot",
+      "l2update",
+      "l3snapshot",
+      "open",
+      "fill",
+      "change",
+      "done"
+    ]
+  },
+  {
+    "id": "mango",
+    "name": "Mango Markets DEX",
+    "enabled": true,
+    "delisted": true,
+    "supportsDatasets": true,
+    "availableSince": "2022-01-19T00:00:00.000Z",
+    "availableTo": "2022-10-14T00:00:00.000Z",
+    "availableChannels": [
+      "recent_trades",
+      "trade",
+      "quote",
+      "l2snapshot",
+      "l2update",
+      "l3snapshot",
+      "open",
+      "fill",
+      "change",
+      "done"
+    ]
+  },
+  {
+    "id": "dydx",
+    "name": "dYdX",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2021-04-06T00:00:00.000Z",
+    "availableChannels": [
+      "v3_trades",
+      "v3_orderbook",
+      "v3_markets"
+    ]
+  },
+  {
+    "id": "delta",
+    "name": "Delta Exchange",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2020-03-30T00:00:00.000Z",
+    "availableChannels": [
+      "l2_orderbook",
+      "recent_trade",
+      "recent_trade_snapshot",
+      "mark_price",
+      "spot_price",
+      "funding_rate",
+      "product_updates",
+      "announcements",
+      "all_trades",
+      "v2/ticker",
+      "l1_orderbook",
+      "l2_updates",
+      "spot_30mtwap_price"
+    ]
+  },
+  {
+    "id": "ftx-us",
+    "name": "FTX US",
+    "enabled": true,
+    "delisted": true,
+    "supportsDatasets": true,
+    "availableSince": "2020-05-22T00:00:00.000Z",
+    "availableTo": "2022-11-13T00:00:00.000Z",
+    "availableChannels": [
+      "orderbook",
+      "trades",
+      "markets",
+      "orderbookGrouped",
+      "ticker"
+    ]
+  },
+  {
+    "id": "binance-us",
+    "name": "Binance US",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-09-25T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "aggTrade",
+      "ticker",
+      "depth",
+      "depthSnapshot",
+      "bookTicker",
+      "recentTrades"
+    ]
+  },
+  {
+    "id": "gate-io-futures",
+    "name": "Gate.io Futures",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2020-07-01T00:00:00.000Z",
+    "availableChannels": [
+      "trades",
+      "order_book",
+      "tickers",
+      "book_ticker"
+    ]
+  },
+  {
+    "id": "gate-io",
+    "name": "Gate.io",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2020-07-01T00:00:00.000Z",
+    "availableChannels": [
+      "trades",
+      "depth",
+      "ticker",
+      "book_ticker",
+      "order_book_update"
+    ]
+  },
+  {
+    "id": "okcoin",
+    "name": "OKCoin",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-11-19T00:00:00.000Z",
+    "availableChannels": [
+      "spot/trade",
+      "spot/depth",
+      "spot/depth_l2_tbt",
+      "spot/ticker",
+      "trades",
+      "books",
+      "bbo-tbt",
+      "tickers"
+    ]
+  },
+  {
+    "id": "bitflyer",
+    "name": "bitFlyer",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-08-30T00:00:00.000Z",
+    "availableChannels": [
+      "lightning_executions",
+      "lightning_board_snapshot",
+      "lightning_board",
+      "lightning_ticker"
+    ]
+  },
+  {
+    "id": "hitbtc",
+    "name": "HitBTC (high caps)",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-11-19T00:00:00.000Z",
+    "availableChannels": [
+      "updateTrades",
+      "snapshotTrades",
+      "snapshotOrderbook",
+      "updateOrderbook"
+    ]
+  },
+  {
+    "id": "coinflex",
+    "name": "CoinFLEX (2.0)",
+    "enabled": true,
+    "delisted": true,
+    "supportsDatasets": true,
+    "availableSince": "2020-07-14T00:00:00.000Z",
+    "availableTo": "2023-04-07T00:00:00.000Z",
+    "availableChannels": [
+      "futures/depth",
+      "trade",
+      "ticker"
+    ]
+  },
+  {
+    "id": "crypto-com",
+    "name": "Crypto.com",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2022-06-01T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "book",
+      "ticker",
+      "settlement",
+      "index",
+      "mark",
+      "funding",
+      "estimatedfunding"
+    ]
+  },
+  {
+    "id": "crypto-com-derivatives",
+    "name": "Crypto.com Derivatives",
+    "enabled": true,
+    "delisted": true,
+    "supportsDatasets": true,
+    "availableSince": "2022-06-01T00:00:00.000Z",
+    "availableTo": "2022-11-01T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "book",
+      "ticker",
+      "settlement",
+      "index",
+      "mark",
+      "funding"
+    ]
+  },
+  {
+    "id": "binance-jersey",
+    "name": "Binance Jersey",
+    "enabled": true,
+    "delisted": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-10-30T00:00:00.000Z",
+    "availableTo": "2020-11-10T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "aggTrade",
+      "ticker",
+      "depth",
+      "depthSnapshot",
+      "bookTicker",
+      "recentTrades"
+    ]
+  },
+  {
+    "id": "binance-dex",
+    "name": "Binance DEX",
+    "enabled": true,
+    "delisted": true,
+    "supportsDatasets": true,
+    "availableSince": "2019-06-04T00:00:00.000Z",
+    "availableTo": "2022-10-04T00:00:00.000Z",
+    "availableChannels": [
+      "trades",
+      "marketDiff",
+      "depthSnapshot",
+      "ticker"
+    ]
+  },
+  {
+    "id": "star-atlas",
+    "name": "Star Atlas DEX",
+    "enabled": true,
+    "delisted": true,
+    "supportsDatasets": true,
+    "availableSince": "2021-10-09T00:00:00.000Z",
+    "availableTo": "2022-09-05T00:00:00.000Z",
+    "availableChannels": [
+      "recent_trades",
+      "trade",
+      "quote",
+      "l2snapshot",
+      "l2update",
+      "l3snapshot",
+      "open",
+      "fill",
+      "change",
+      "done"
+    ]
+  },
+  {
+    "id": "bitnomial",
+    "name": "Bitnomial",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2023-01-13T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "level",
+      "book",
+      "block",
+      "status"
+    ]
+  },
+  {
+    "id": "woo-x",
+    "name": "WOO X",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2023-01-20T00:00:00.000Z",
+    "availableChannels": [
+      "trade",
+      "orderbook",
+      "orderbookupdate",
+      "ticker",
+      "bbo",
+      "indexprice",
+      "markprice",
+      "openinterest",
+      "estfundingrate"
+    ]
+  },
+  {
+    "id": "blockchain-com",
+    "name": "Blockchain.com",
+    "enabled": true,
+    "supportsDatasets": true,
+    "availableSince": "2023-02-23T00:00:00.000Z",
+    "availableChannels": [
+      "trades",
+      "l2",
+      "l3",
+      "ticker"
+    ]
+  }
+]

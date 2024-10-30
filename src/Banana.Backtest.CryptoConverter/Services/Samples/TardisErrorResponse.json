@@ -1,0 +1,32 @@
+﻿{
+  "code": 140,
+  "message": "Requested dataset is not available for \u00272024-01-03\u0027. Data for \u0027BTCUSDC\u0027 is available since \u00272024-01-04\u0027. Use \u0027https://api.tardis.dev/v1/exchanges/binance-futures\u0027 API call to get availability dates for all \u0027binance-futures\u0027 symbols (\u0027datasets.symbols[].availableSince\u0027 field).",
+  "providedParams": {
+    "exchange": "binance-futures",
+    "dataType": "incremental_book_L2",
+    "year": "2024",
+    "month": "01",
+    "day": "03",
+    "symbol": "BTCUSDC"
+  },
+  "datasetInfo": {
+    "id": "BTCUSDC",
+    "type": "perpetual",
+    "dataTypes": [
+      "trades",
+      "incremental_book_L2",
+      "quotes",
+      "book_snapshot_5",
+      "book_snapshot_25",
+      "derivative_ticker",
+      "liquidations",
+      "book_ticker"
+    ],
+    "availableSince": "2024-01-04T00:00:00.000Z",
+    "availableTo": "2024-10-14T00:00:00.000Z",
+    "stats": {
+      "trades": 113851319,
+      "bookChanges": 378475822
+    }
+  }
+}

@@ -1,0 +1,71 @@
+version: '3.9'
+
+services:
+  crypto-converter-master:
+    image: aroman35/banana-crypto-converter:${VERSION_TAG}
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_URLS: "http://*:8080"
+      DOTNET_ENVIRONMENT: "Production"
+      CONSUL_URI: ${CONSUL_URI}
+      CONSUL_PATH: ${CONSUL_PATH}
+      CONSUL_APP_NAME: "master"
+      CONSUL_ENABLED: "True"
+      CONSUL_TOKEN: ${CONSUL_TOKEN}
+    ports:
+      - "6950:8080"
+    networks:
+      - svc-network
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+        window: 20s
+
+  crypto-converter-workers:
+    image: aroman35/banana-crypto-converter:${VERSION_TAG}
+    restart: unless-stopped
+    user: "${UID}:${GID}"
+    environment:
+      ASPNETCORE_URLS: "http://*:8080"
+      DOTNET_ENVIRONMENT: "Production"
+      CONSUL_URI: ${CONSUL_URI}
+      CONSUL_PATH: ${CONSUL_PATH}
+      CONSUL_APP_NAME: "replicated"
+      CONSUL_ENABLED: "True"
+      CONSUL_TOKEN: ${CONSUL_TOKEN}
+    volumes:
+      - market-data-storage:/market-data-storage
+    networks:
+      - svc-network
+    deploy:
+      mode: replicated
+      replicas: 8
+      endpoint_mode: vip
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+
+volumes:
+  market-data-storage:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '${STORAGE_PATH}'
+
+networks:
+  svc-network:
+    driver: overlay
+    attachable: true
+    ipam:
+      config:
+        - subnet: 10.15.74.0/24

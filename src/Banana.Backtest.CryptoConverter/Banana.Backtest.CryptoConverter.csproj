@@ -1,0 +1,102 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <IsPublishable>true</IsPublishable>
+        <EnableSdkContainerSupport>true</EnableSdkContainerSupport>
+        <ContainerWorkingDirectory>/bin</ContainerWorkingDirectory>
+        <ContainerRepository>banana-crypto-converter</ContainerRepository>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Banana.Backtest.Common\Banana.Backtest.Common.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="FastEndpoints" Version="5.30.0"/>
+        <PackageReference Include="FastEndpoints.Swagger" Version="5.30.0"/>
+        <PackageReference Include="Flurl.Http" Version="4.0.2"/>
+        <PackageReference Include="Hangfire" Version="1.8.14"/>
+        <PackageReference Include="Hangfire.Prometheus.NetCore" Version="1.0.50"/>
+        <PackageReference Include="Hangfire.Redis.StackExchange" Version="1.9.3"/>
+        <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="8.10.0"/>
+        <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.9.0-beta.2"/>
+        <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.10.0-beta.1"/>
+        <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.9.0"/>
+        <PackageReference Include="OpenTelemetry.Instrumentation.Hangfire" Version="1.9.0-beta.1"/>
+        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.9.0"/>
+        <PackageReference Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.9.0-beta.1"/>
+        <PackageReference Include="Polly" Version="8.4.2" />
+        <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
+        <PackageReference Include="Serilog.Sinks.Async" Version="2.1.0" />
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+        <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+        <PackageReference Include="Winton.Extensions.Configuration.Consul" Version="3.4.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Remove="Services\Samples\OkexSwapResponse.json"/>
+        <None Include="Services\Samples\OkexSwapResponse.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Remove="Services\Samples\BinanceFuturesResponse.json"/>
+        <None Include="Services\Samples\BinanceFuturesResponse.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Remove="Services\Samples\TardisErrorResponse.json"/>
+        <None Include="Services\Samples\TardisErrorResponse.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Remove="Services\Samples\tardis\instruments\binance-futures.json"/>
+        <None Include="Services\Samples\tardis\instruments\binance-futures.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Remove="Services\Samples\tardis\instruments\binance-spot.json"/>
+        <None Include="Services\Samples\tardis\instruments\binance-spot.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Remove="Services\Samples\tardis\instruments\okex-futures.json"/>
+        <None Include="Services\Samples\tardis\instruments\okex-futures.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Remove="Services\Samples\tardis\instruments\okex-spot.json"/>
+        <None Include="Services\Samples\tardis\instruments\okex-spot.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Remove="Services\Samples\tardis\instruments\okex-swap.json"/>
+        <None Include="Services\Samples\tardis\instruments\okex-swap.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Remove="Services\Samples\tardis\exchanges\binance.json"/>
+        <None Include="Services\Samples\tardis\exchanges\binance.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Remove="Services\Samples\tardis\exchanges\binance-futures.json"/>
+        <None Include="Services\Samples\tardis\exchanges\binance-futures.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Remove="Services\Samples\tardis\exchanges\index.json"/>
+        <None Include="Services\Samples\tardis\exchanges\index.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Remove="Services\Samples\tardis\exchanges\kucoin.json"/>
+        <None Include="Services\Samples\tardis\exchanges\kucoin.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Remove="Services\Samples\tardis\exchanges\okex.json"/>
+        <None Include="Services\Samples\tardis\exchanges\okex.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Remove="Services\Samples\tardis\exchanges\okex-swap.json"/>
+        <None Include="Services\Samples\tardis\exchanges\okex-swap.json">
+            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        </None>
+        <Content Update="appsettings.Development.json">
+          <DependentUpon>appsettings.json</DependentUpon>
+        </Content>
+    </ItemGroup>
+
+</Project>
