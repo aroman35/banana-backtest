@@ -81,6 +81,21 @@ public class CatalogRepository(IConnectionMultiplexer connectionMultiplexer, IOp
         }
     }
 
+    public async Task<InstrumentInfo?> GetInstrument(Symbol symbol)
+    {
+        var key = InstrumentsKey(symbol.Exchange);
+        var hash = new RedisValue(symbol.ToString());
+        var result = await _database.HashGetAsync(key, hash);
+        if (result.HasValue)
+        {
+            var instrumentInfo = JsonSerializer.Deserialize<InstrumentInfo>(
+                result.ToString(),
+                _jsonSerializerOptions);
+            return instrumentInfo;
+        }
+        return default;
+    }
+
     private static unsafe RedisValue MetaToRedisValue(MarketDataHash hash)
     {
         var buffer = MemoryPool<byte>.Shared.Rent(Unsafe.SizeOf<MarketDataHash>());

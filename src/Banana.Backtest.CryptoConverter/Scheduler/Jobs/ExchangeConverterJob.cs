@@ -51,14 +51,14 @@ public class ExchangeConverterJob(
                 {
                     backgroundJobClient.Enqueue<MarketDataConverterJob<LevelUpdate>>(
                         HangfireDefaults.LEVEL_UPDATES_QUEUE,
-                        converter => converter.HandleAsync(hash.For(FeedType.LevelUpdates), instrumentInfo, CancellationToken.None));
+                        converter => converter.HandleAsync(hash.For(FeedType.LevelUpdates), CancellationToken.None));
                 }
 
                 if (!cataloguedHashes.Contains(tradesHash))
                 {
                     backgroundJobClient.Enqueue<MarketDataConverterJob<TradeUpdate>>(
                         HangfireDefaults.TRADES_QUEUE,
-                        converter => converter.HandleAsync(hash.For(FeedType.Trades), instrumentInfo, CancellationToken.None));
+                        converter => converter.HandleAsync(hash.For(FeedType.Trades), CancellationToken.None));
                 }
             }
         }

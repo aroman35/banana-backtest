@@ -20,7 +20,7 @@ public class ConvertTradesEndpoint(IBackgroundJobClient backgroundJobClient) : E
         var hash = MarketDataHash.Create(request.Symbol, request.TradeDate, FeedType.Trades);
         backgroundJobClient.Enqueue<MarketDataConverterJob<TradeUpdate>>(
             HangfireDefaults.TRADES_QUEUE,
-            converter => converter.HandleAsync(hash, request.InstrumentInfo, CancellationToken.None));
+            converter => converter.HandleAsync(hash, CancellationToken.None));
         return Task.CompletedTask;
     }
 }

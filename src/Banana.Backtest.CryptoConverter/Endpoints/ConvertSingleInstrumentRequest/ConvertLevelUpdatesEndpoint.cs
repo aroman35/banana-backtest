@@ -20,7 +20,7 @@ public class ConvertLevelUpdatesEndpoint(IBackgroundJobClient backgroundJobClien
         var hash = MarketDataHash.Create(request.Symbol, request.TradeDate, FeedType.LevelUpdates);
         backgroundJobClient.Enqueue<MarketDataConverterJob<LevelUpdate>>(
             HangfireDefaults.LEVEL_UPDATES_QUEUE,
-            converter => converter.HandleAsync(hash, request.InstrumentInfo, CancellationToken.None));
+            converter => converter.HandleAsync(hash, CancellationToken.None));
         return Task.CompletedTask;
     }
 }

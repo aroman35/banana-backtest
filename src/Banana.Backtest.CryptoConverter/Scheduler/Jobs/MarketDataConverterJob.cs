@@ -3,7 +3,6 @@ using System.Reflection;
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.CryptoConverter.Parsers;
 using Banana.Backtest.CryptoConverter.Services;
-using Banana.Backtest.CryptoConverter.Services.Models.Tardis;
 
 namespace Banana.Backtest.CryptoConverter.Scheduler.Jobs;
 
@@ -17,11 +16,13 @@ public class MarketDataConverterJob<TMarketDataType>(
                                           ?? throw new ArgumentException(
                                               $"Feed type is not defined for {typeof(TMarketDataType).Name}. Ensure that {nameof(FeedAttribute)} is set.");
 
-    public async Task HandleAsync(MarketDataHash hash, InstrumentInfo instrumentInfo, CancellationToken cancellationToken = default)
+    public async Task HandleAsync(MarketDataHash hash, CancellationToken cancellationToken = default)
     {
         if (hash.Feed != _feedType)
             throw new ArgumentException($"Invalid hash feed type: {hash.Feed}");
 
+        var instrumentInfo = await catalog.GetInstrument(hash.Symbol);
+        ArgumentNullException.ThrowIfNull(instrumentInfo);
         await using var tardisStream = await tardisClient.DownloadDatasetFileAsync(hash, instrumentInfo, cancellationToken);
         await using (var decompressionStream = new GZipStream(tardisStream, CompressionMode.Decompress))
         {
