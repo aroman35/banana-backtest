@@ -7,11 +7,6 @@ services:
     environment:
       ASPNETCORE_URLS: "http://*:8080"
       DOTNET_ENVIRONMENT: "Production"
-      CONSUL_URI: ${CONSUL_URI}
-      CONSUL_PATH: ${CONSUL_PATH}
-      CONSUL_APP_NAME: "master"
-      CONSUL_ENABLED: "True"
-      CONSUL_TOKEN: ${CONSUL_TOKEN}
     ports:
       - "6950:8080"
     networks:
@@ -23,6 +18,9 @@ services:
         delay: 5s
         max_attempts: 10
         window: 20s
+    configs:
+      - source: crypto-converter.master.appsettings.json
+        target: /bin/appsettings.json
 
   crypto-converter-workers:
     image: aroman35/banana-crypto-converter:${VERSION_TAG}
@@ -31,11 +29,6 @@ services:
     environment:
       ASPNETCORE_URLS: "http://*:8080"
       DOTNET_ENVIRONMENT: "Production"
-      CONSUL_URI: ${CONSUL_URI}
-      CONSUL_PATH: ${CONSUL_PATH}
-      CONSUL_APP_NAME: "replicated"
-      CONSUL_ENABLED: "True"
-      CONSUL_TOKEN: ${CONSUL_TOKEN}
     volumes:
       - market-data-storage:/market-data-storage
     networks:
@@ -53,6 +46,9 @@ services:
         limits:
           cpus: '1'
           memory: 2G
+    configs:
+      - source: crypto-converter.replica.appsettings.json
+        target: /bin/appsettings.json
 
 volumes:
   market-data-storage:
@@ -60,6 +56,14 @@ volumes:
       type: cifs
       o: 'username=${NAS_USER},password=${NAS_PASSWORD},uid=${UID},gid-${GID} 0 0'
       device: ${NAS_PATH}
+
+configs:
+  crypto-converter.master.appsettings.json:
+    file: ./crypto-converter.master.appsettings.json
+    external: true
+  crypto-converter.replica.appsettings.json:
+    file: ./crypto-converter.replica.appsettings.json
+    external: true
 
 networks:
   svc-network:

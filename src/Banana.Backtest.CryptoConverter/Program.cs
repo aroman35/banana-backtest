@@ -24,8 +24,7 @@ CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddEnvironmentVariables();
-builder.Configuration.AddServiceConfiguration("appsettings", builder.Configuration);
-builder.Configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 
 builder.Services
     .AddOpenTelemetry()
