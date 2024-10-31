@@ -66,6 +66,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Log in to Docker Hub
-        run: echo ${{ DOCKER_PASSWORD }} | docker login --username ${{ secrets.DOCKER_USERNAME }} --password-stdin
+        run: echo $DOCKER_PASSWORD | docker login --username ${{ secrets.DOCKER_USERNAME }} --password-stdin
       - name: Push container
         run: docker push ${{ vars.REGISTRY_ID }} --all-tags
