@@ -56,11 +56,10 @@ services:
 
 volumes:
   market-data-storage:
-    driver: local
     driver_opts:
-      type: 'none'
-      o: 'bind'
-      device: '${STORAGE_PATH}'
+      type: cifs
+      o: 'username=${NAS_USER},password=${NAS_PASSWORD},uid=${UID},gid-${GID} 0 0'
+      device: ${NAS_PATH}
 
 networks:
   svc-network:
