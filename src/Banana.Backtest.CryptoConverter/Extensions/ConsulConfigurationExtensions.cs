@@ -3,7 +3,7 @@ using Serilog;
 using Serilog.Events;
 using Winton.Extensions.Configuration.Consul;
 
-namespace Banana.Backtest.CryptoConverter.Endpoints.ExchangeInfoRequest;
+namespace Banana.Backtest.CryptoConverter.Extensions;
 
 public static class ConsulConfigurationExtensions
 {
