@@ -24,11 +24,10 @@ public class HangfireJobActivator(IServiceScopeFactory serviceScopeFactory, ILog
             var service = serviceScope.ServiceProvider.GetRequiredService(type);
             return service;
         }
-        
+
         public override void DisposeScope()
         {
             serviceScope.Dispose();
         }
     }
 }
-

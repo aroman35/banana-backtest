@@ -17,7 +17,7 @@ public struct Symbol : IEquatable<Symbol>
     private Exchange _exchange;
 
     public const string SYMBOL_FORMAT = "{BaseAsset}@{QuoteAsset}.{Exchange}";
-    
+
     public string Ticker
     {
         get
@@ -46,7 +46,7 @@ public struct Symbol : IEquatable<Symbol>
     public Exchange Exchange => _exchange;
 
     public bool IsCrypto => (Exchange.Crypto & _exchange) == _exchange;
-    
+
     public static Symbol Parse(string ticker, string classCode, Exchange exchange)
     {
         return new Symbol
@@ -81,9 +81,7 @@ public struct Symbol : IEquatable<Symbol>
             var baseAssetSpan = symbolSpan[..indexOfClassCode];
             var quoteAssetSpan = symbolSpan.Slice(
                 indexOfClassCode + 1,
-                indexOfExchange > 0
-                    ? indexOfExchange - indexOfClassCode - 1
-                    : symbolSpan.Length - indexOfClassCode - 1);
+                indexOfExchange > 0 ? indexOfExchange - indexOfClassCode - 1 : symbolSpan.Length - indexOfClassCode - 1);
             var baseAsset = Asset.Get(baseAssetSpan);
             var quoteAsset = Asset.Get(quoteAssetSpan);
             var exchange = givenExchange ?? Enum.Parse<Exchange>(symbolSpan[(indexOfExchange + 1)..]);
@@ -105,13 +103,13 @@ public struct Symbol : IEquatable<Symbol>
     {
         return Parse(symbolString.AsSpan(), exchange);
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Equals(Symbol other)
     {
         return _exchange == other._exchange && _quoteAsset == other._quoteAsset && _baseAsset == other._baseAsset;
     }
-    
+
     public override bool Equals(object? obj)
     {
         return obj is Symbol other && Equals(other);
@@ -119,7 +117,7 @@ public struct Symbol : IEquatable<Symbol>
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator ==(Symbol a, Symbol b) => a.Equals(b);
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator !=(Symbol a, Symbol b) => !a.Equals(b);
 

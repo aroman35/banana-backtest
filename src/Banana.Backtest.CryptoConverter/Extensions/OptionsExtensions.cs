@@ -5,7 +5,7 @@ public static class OptionsExtensions
     /// <summary>
     /// Add a typed options to App configuration using the TOptions type name
     /// </summary>
-    public static IServiceCollection ConfigureOptions<TOptions>(this IServiceCollection serviceCollection, IConfiguration configuration, string name = null)
+    public static IServiceCollection ConfigureOptions<TOptions>(this IServiceCollection serviceCollection, IConfiguration configuration, string? name = null)
         where TOptions : class, new()
     {
         var section = configuration.GetSection(string.IsNullOrEmpty(name) ? typeof(TOptions).Name : name);

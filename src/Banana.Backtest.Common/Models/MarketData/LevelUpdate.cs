@@ -1,6 +1,6 @@
-using System.Runtime.InteropServices;
-
 namespace Banana.Backtest.Common.Models.MarketData;
+
+using System.Runtime.InteropServices;
 
 [Feed(FeedType.LevelUpdates)]
 [StructLayout(LayoutKind.Sequential)]

@@ -9,7 +9,7 @@ public class EmptyDashboardAuthorizationFilter : IDashboardAuthorizationFilter
     private EmptyDashboardAuthorizationFilter()
     {
     }
-    
+
     public bool Authorize(DashboardContext context)
     {
         return true;

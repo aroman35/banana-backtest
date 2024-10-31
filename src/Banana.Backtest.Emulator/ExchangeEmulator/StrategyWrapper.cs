@@ -8,6 +8,7 @@ namespace Banana.Backtest.Emulator.ExchangeEmulator;
 
 public class StrategyWrapper : IStrategy
 {
+    private const int DATA_DEPTH = 128;
     private readonly ILogger _logger;
     private readonly TimeOnly _openTime = new(10, 0, 0);
     private readonly TimeOnly _closeTime = new(18, 50, 0);
@@ -19,16 +20,14 @@ public class StrategyWrapper : IStrategy
     private readonly long _simulationStartedTimestamp;
     private OrderBookSnapshot _orderBook;
 
-    private int _ordersCount;
-    private double _volumeExecuted = 0;
-    private double _volumeStd = 0;
-    private double _volumeEwma = 0;
-    private const int DataDepth = 128;
+    private double _volumeExecuted;
+    private double _volumeStd;
+    private double _volumeEwma;
 
-    private TradeUpdate[] _trades = new TradeUpdate[DataDepth];
+    private TradeUpdate[] _trades = new TradeUpdate[DATA_DEPTH];
     private double _lastPx;
     private int _tradesIdx;
-    
+
     public StrategyWrapper(Emulator emulator, ILogger logger)
     {
         _emulator = emulator;
@@ -54,20 +53,20 @@ public class StrategyWrapper : IStrategy
             return;
         _volumeExecuted += trade.Item.Volume;
         _trades[_tradesIdx++] = trade.Item;
-        if (_tradesIdx == DataDepth)
+        if (_tradesIdx == DATA_DEPTH)
         {
-            var volumesSpan = stackalloc double[DataDepth];
-            
+            var volumesSpan = stackalloc double[DATA_DEPTH];
+
             fixed (TradeUpdate* tradesPtr = _trades)
             {
-                for (var i = 0; i < DataDepth; i++)
+                for (var i = 0; i < DATA_DEPTH; i++)
                 {
                     volumesSpan[i] = tradesPtr[i].Volume;
                 }
             }
 
-            _volumeStd = StandardDeviation(volumesSpan, DataDepth);
-            _volumeEwma = Ewma(volumesSpan, DataDepth, 0.27);
+            _volumeStd = StandardDeviation(volumesSpan, DATA_DEPTH);
+            _volumeEwma = Ewma(volumesSpan, DATA_DEPTH, 0.27);
             _tradesIdx = 0;
             var isLong = Math.Log10(_volumeStd).IsGreater(Math.Log10(_volumeEwma));
             var order = new UserOrder
@@ -98,7 +97,7 @@ public class StrategyWrapper : IStrategy
     {
         var remainedLimit = _userExecutions
             .Sum(execution => execution.ExecutedQuantity * (int)execution.Side);
-        
+
         var value = remainedLimit * _lastPx;
 
         var total = _userExecutions
@@ -109,7 +108,7 @@ public class StrategyWrapper : IStrategy
         var brokerFee = executedVolume * 0.00025;
         var cleanPnl = dirtyPnl - brokerFee;
         var elapsedTime = Stopwatch.GetElapsedTime(_simulationStartedTimestamp);
-        
+
         _logger.Information(
             "Trade date: {TradeDate} Strategy finished. Total trades: {TradesCount}, PnL: {Pnl} (Broker Fee: {Fee} | Volume: {Volume}) Duration: {Duration}",
             _emulator.Hash.Date,
@@ -139,7 +138,7 @@ public class StrategyWrapper : IStrategy
         var variance = sumSquared / size - mean * mean;
         return Math.Sqrt(variance);
     }
-    
+
     private static unsafe double Ewma(double* dataPtr, int size, double alpha)
     {
         if (size == 0)

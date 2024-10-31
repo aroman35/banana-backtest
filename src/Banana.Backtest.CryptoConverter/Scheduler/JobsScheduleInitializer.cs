@@ -46,7 +46,7 @@ public class JobsScheduleInitializer(IRecurringJobManager recurringJobManager, I
                 TimeZone = TimeZoneInfo.Utc
             });
     }
-    
+
     public Task StopAsync(CancellationToken cancellationToken)
     {
         return Task.CompletedTask;

@@ -9,6 +9,9 @@ namespace Banana.Backtest.Common.Services;
 public unsafe class MarketDataCacheAccessor<TMarketDataType> : IMarketDataCacheWriter<TMarketDataType>, IMarketDataCacheReader<TMarketDataType>
     where TMarketDataType : unmanaged
 {
+    private readonly FeedType _feed = typeof(TMarketDataType).GetCustomAttribute<FeedAttribute>()?.Feed
+                                          ?? throw new ArgumentException(
+                                              $"Feed type is not defined for {typeof(TMarketDataType).Name}. Ensure that {nameof(FeedAttribute)} is set.");
     private readonly FileStream? _sourceFileStream;
     private readonly MarketDataHash _hash;
     private readonly CompressionType _compressionType;
@@ -29,12 +32,9 @@ public unsafe class MarketDataCacheAccessor<TMarketDataType> : IMarketDataCacheW
         CompressionLevel compressionLevel)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcesDirectory);
-        var feed = typeof(TMarketDataType).GetCustomAttribute<FeedAttribute>()?.Feed
-                   ?? throw new ArgumentException(
-                       $"Feed type is not defined for {typeof(TMarketDataType).Name}. Ensure that {nameof(FeedAttribute)} is set.");
 
         _isReader = false;
-        _hash = hash.For(feed);
+        _hash = hash.For(_feed);
         _compressionType = compressionType;
         _compressionLevel = compressionLevel;
         var filePath = hash.FilePath(sourcesDirectory);
@@ -65,12 +65,9 @@ public unsafe class MarketDataCacheAccessor<TMarketDataType> : IMarketDataCacheW
     internal MarketDataCacheAccessor(string? sourcesDirectory, MarketDataHash hash)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcesDirectory);
-        var feed = typeof(TMarketDataType).GetCustomAttribute<FeedAttribute>()?.Feed
-                   ?? throw new ArgumentException(
-                       $"Feed type is not defined for {typeof(TMarketDataType).Name}. Ensure that {nameof(FeedAttribute)} is set.");
 
         _isReader = true;
-        _hash = hash.For(feed);
+        _hash = hash.For(_feed);
         var filePath = hash.FilePath(sourcesDirectory);
         if (!File.Exists(filePath))
         {
@@ -88,8 +85,8 @@ public unsafe class MarketDataCacheAccessor<TMarketDataType> : IMarketDataCacheW
         };
         _sourceFileStream = File.Open(filePath, options);
         var meta = ExtractMeta();
-        if (meta.Hash.Feed != feed)
-            throw new ArgumentException($"Invalid market data file. Expected {feed}. Found {meta.Hash.Feed}.");
+        if (meta.Hash.Feed != _feed)
+            throw new ArgumentException($"Invalid market data file. Expected {_feed}. Found {meta.Hash.Feed}.");
         if (meta.Hash.Symbol != hash.Symbol)
             throw new AggregateException(
                 $"Invalid market data file. Expected {hash.Symbol.Ticker}. Found {meta.Hash.Symbol.Ticker}.");
@@ -237,26 +234,5 @@ public unsafe class MarketDataCacheAccessor<TMarketDataType> : IMarketDataCacheW
 
         _disposed = true;
         _sourceFileStream?.Dispose();
-    }
-}
-
-public static class MarketDataCacheAccessor
-{
-    public static IMarketDataCacheReader<TMarketDataType> CreateReader<TMarketDataType>(
-        string? sourcesDirectory,
-        MarketDataHash hash)
-        where TMarketDataType : unmanaged
-    {
-        return new MarketDataCacheAccessor<TMarketDataType>(sourcesDirectory, hash);
-    }
-
-    public static IMarketDataCacheWriter<TMarketDataType> CreateWriter<TMarketDataType>(
-        string? sourcesDirectory,
-        MarketDataHash hash,
-        CompressionType compressionType,
-        CompressionLevel compressionLevel)
-        where TMarketDataType : unmanaged
-    {
-        return new MarketDataCacheAccessor<TMarketDataType>(sourcesDirectory, hash, compressionType, compressionLevel);
     }
 }

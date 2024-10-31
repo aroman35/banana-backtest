@@ -10,10 +10,10 @@ namespace Banana.Backtest.CryptoConverter.Parsers;
 public class TardisParserHandler<TMarketDataType>(
     IOptions<MarketDataParserOptions> options,
     MarketDataHash hash) : IParserHandler<TMarketDataType>
-    where TMarketDataType: unmanaged
+    where TMarketDataType : unmanaged
 {
     private readonly IMarketDataCacheWriter<TMarketDataType> _marketDataCacheWriter =
-        MarketDataCacheAccessor.CreateWriter<TMarketDataType>(
+        MarketDataCacheAccessorProvider.CreateWriter<TMarketDataType>(
             options.Value.OutputDirectory,
             hash,
             options.Value.CompressionType,

@@ -3,7 +3,6 @@ using System.Text.Json.Serialization;
 using Banana.Backtest.Common.Models.MarketData;
 using Banana.Backtest.Common.Models.Options;
 using Banana.Backtest.CryptoConverter.Converters;
-using Banana.Backtest.CryptoConverter.Endpoints.ExchangeInfoRequest;
 using Banana.Backtest.CryptoConverter.Extensions;
 using Banana.Backtest.CryptoConverter.Options;
 using Banana.Backtest.CryptoConverter.Parsers;

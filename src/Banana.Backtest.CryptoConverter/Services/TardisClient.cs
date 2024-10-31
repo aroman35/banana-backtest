@@ -23,7 +23,6 @@ public class TardisClient(
         [FeedType.LevelUpdates] = "incremental_book_L2",
     };
 
-    private static readonly Dictionary<Symbol, string> TardisDatasetIds = new();
     private readonly ILogger _logger = logger.ForContext<TardisClient>();
 
     public async IAsyncEnumerable<InstrumentInfo> GetExchangeInstrumentsAsync(Exchange exchange, [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -46,16 +45,14 @@ public class TardisClient(
             .ReadFromJsonAsAsyncEnumerable<TardisContract>(cancellationToken: cancellationToken)
             .Where(instrument => instrument is { Active: true, BaseCurrency.Length: <= 8, QuoteCurrency.Length: <= 8 })
             .OrderByDescending(x => x?.AvailableSince);
-    
+
         await foreach (var instrument in instruments)
         {
             var info = instrument!.ToInstrumentInfo();
-            if (!string.IsNullOrWhiteSpace(instrument.DatasetId))
-                TardisDatasetIds[info.Symbol] = instrument.DatasetId;
             yield return info;
         }
     }
-    
+
     public async Task<Stream> DownloadDatasetFileAsync(MarketDataHash hash, InstrumentInfo instrumentInfo, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tardisOptions.Value.DatasetsUrl);
@@ -89,8 +86,7 @@ public class TardisClient(
         }
         return await response.Content.ReadAsStreamAsync(cancellationToken);
     }
-    
-    [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
+
     private class InstrumentFilter
     {
         public string? Type { get; set; }

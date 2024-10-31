@@ -30,11 +30,11 @@ public unsafe class Emulator : IDisposable
         _hash = hash;
         _emulatorGateway = new StrategyWrapper(this, logger);
         _levelUpdatesCache =
-            MarketDataCacheAccessor.CreateReader<LevelUpdate>(marketDataDirectory, _hash.For(FeedType.LevelUpdates));
-        _tradesCache = MarketDataCacheAccessor.CreateReader<TradeUpdate>(marketDataDirectory, _hash.For(FeedType.Trades));
+            MarketDataCacheAccessorProvider.CreateReader<LevelUpdate>(marketDataDirectory, _hash.For(FeedType.LevelUpdates));
+        _tradesCache = MarketDataCacheAccessorProvider.CreateReader<TradeUpdate>(marketDataDirectory, _hash.For(FeedType.Trades));
         _orderBook = new OrderBook();
     }
-    
+
     public IStrategy GetStrategy => _emulatorGateway;
     public MarketDataHash Hash => _hash;
 
@@ -48,10 +48,10 @@ public unsafe class Emulator : IDisposable
                 OrderBookUpdated();
                 _currentTimestamp = levelUpdate.Timestamp;
             }
-            
+
             _orderBook.UpdateOrder(levelUpdate);
         }
-        
+
         _emulatorGateway.SimulationFinished();
     }
 
@@ -90,7 +90,6 @@ public unsafe class Emulator : IDisposable
                         Price = bestAsk.Price,
                         Quantity = bestAsk.Quantity - executedQuantity,
                         IsBid = false,
-
                     }
                 };
                 _orderBook.UpdateOrder(levelUpdate);
@@ -179,7 +178,8 @@ public unsafe class Emulator : IDisposable
                     Price = bestBid.Price,
                     Quantity = bestBid.Quantity - executedQuantity,
                     IsBid = true,
-                }, _currentTimestamp));
+                },
+                    _currentTimestamp));
 
                 // Отправить отчёт о частичном или полном исполнении
                 _emulatorGateway.UserExecutionReceived(execution);
@@ -200,14 +200,6 @@ public unsafe class Emulator : IDisposable
         }
 
         _emulatorGateway.OrderBookUpdated(new MarketDataItem<OrderBookSnapshot>(_orderBook.TakeSnapshot(), _currentTimestamp));
-    }
-
-    private void MatchTaker()
-    {
-    }
-
-    private void RecalculateExecutionLevels()
-    {
     }
 
     public void Dispose()

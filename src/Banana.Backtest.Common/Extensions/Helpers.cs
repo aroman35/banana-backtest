@@ -1,12 +1,16 @@
-﻿using System.Diagnostics;
+﻿namespace Banana.Backtest.Common.Extensions;
+
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
-
-namespace Banana.Backtest.Common.Extensions;
 
 public static class Helpers
 {
     private static long _orderId = Stopwatch.GetTimestamp();
+
+    public static long NextId => Interlocked.Increment(ref _orderId);
+
+    public static long Timestamp => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
     public static DateTime AsDateTime(this long unixTimeMilliseconds)
     {
@@ -27,7 +31,7 @@ public static class Helpers
     public static unsafe string DecodeString(ulong value)
     {
         var valuePtr = (byte*)&value;
-        Span<char> buffer= stackalloc char[sizeof(ulong)];
+        Span<char> buffer = stackalloc char[sizeof(ulong)];
         Encoding.ASCII.GetChars(new Span<byte>(valuePtr, sizeof(ulong)), buffer);
         var slicer = buffer.IndexOf('\0');
         fixed (char* bufferPtr = buffer)
@@ -51,14 +55,13 @@ public static class Helpers
             }
         }
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe ulong EncodeString(Span<byte> asciiString)
     {
-        
         if (asciiString.Length > sizeof(ulong))
             throw new ArgumentException("String is too long");
-        
+
         Span<byte> buffer = stackalloc byte[sizeof(ulong)];
         fixed (byte* inputPtr = asciiString)
         {
@@ -69,14 +72,14 @@ public static class Helpers
             }
         }
     }
-    
+
     public static int ReadSafe(this Stream stream, Span<byte> buffer)
     {
         if (stream.Read(buffer) is var read && read != 0)
         {
-            if (read != buffer.Length) // Stream не готов в данный момент времени выдать данные в полном объеме
+            if (read != buffer.Length)
             {
-                while (stream.Read(buffer[read..]) is var reread && reread != 0) // дочитываем
+                while (stream.Read(buffer[read..]) is var reread && reread != 0)
                 {
                     read += reread;
                     if (read == buffer.Length)
@@ -85,13 +88,11 @@ public static class Helpers
             }
 
             if (read != buffer.Length)
+            {
                 throw new InvalidOperationException("Stream ain't got enough bytes");
+            }
         }
 
         return read;
     }
-
-    public static long NextId => Interlocked.Increment(ref _orderId);
-    
-    public static long Timestamp => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }

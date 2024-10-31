@@ -11,9 +11,3 @@ public class TardisErrorResponse
                date < DateOnly.FromDateTime(DatasetInfo.AvailableTo);
     }
 }
-
-public class DatasetInfo
-{
-    public DateTime AvailableSince { get; set; }
-    public DateTime AvailableTo { get; set; }
-}

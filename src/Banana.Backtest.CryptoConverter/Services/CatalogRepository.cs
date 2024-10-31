@@ -33,7 +33,7 @@ public class CatalogRepository(IConnectionMultiplexer connectionMultiplexer, IOp
     {
         var levelUpdatesHashes = await _database.SetMembersAsync(MarketDataHashKey(symbol, FeedType.LevelUpdates));
         var tradesHashes = await _database.SetMembersAsync(MarketDataHashKey(symbol, FeedType.Trades));
-            
+
         foreach (var entry in levelUpdatesHashes)
         {
             var hash = ByteArrayToMeta(entry);
@@ -97,7 +97,7 @@ public class CatalogRepository(IConnectionMultiplexer connectionMultiplexer, IOp
             return *(MarketDataHash*)rawPtr;
         }
     }
-    
+
     private RedisKey MarketDataHashKey(Symbol symbol, FeedType feedType) =>
         new($"{options.Value.KeyPrefix}{symbol.Exchange}.{symbol.Ticker}.{symbol.ClassCode}.{feedType.ToString()}");
 

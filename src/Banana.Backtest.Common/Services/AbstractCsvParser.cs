@@ -33,7 +33,7 @@ public abstract class AbstractCsvParser<T> : IDisposable
     public void ProcessCsvFile()
     {
         var buffer = ArrayPool<byte>.Shared.Rent(BUFFER_SIZE);
-        
+
         try
         {
             int bytesRead;
@@ -44,17 +44,17 @@ public abstract class AbstractCsvParser<T> : IDisposable
             {
                 var totalBytes = bytesRead + lastRemainder;
                 var currentSpan = spanBuffer.Slice(0, totalBytes);
-                
+
                 // Process lines in the current buffer
                 int lineEndIndex;
                 var processedBytes = 0;
-                
+
                 while ((lineEndIndex = currentSpan.IndexOf(_lineSeparator)) >= 0)
                 {
                     var line = currentSpan.Slice(0, lineEndIndex);
                     if (ParseLine(line, out var entry, out var ticker))
                         _parserHandler.Handle(entry, ticker);
-                    
+
                     // Skip past the '\r\n' characters
                     currentSpan = currentSpan.Slice(lineEndIndex + _lineSeparator.Length);
                     processedBytes += lineEndIndex + _lineSeparator.Length;

@@ -77,13 +77,13 @@ public class OrdersLogParser(string filePath, IParserHandler<OrderUpdate> parser
             var quantitySpan = remainedLine[..indexOfComma];
             var quantity = long.Parse(quantitySpan, CultureInfo.InvariantCulture);
             remainedLine = remainedLine[(indexOfComma + 1)..];
-            
+
             // ID_DEAL
             indexOfComma = remainedLine.IndexOf(COMMA);
             var tradeIdSpan = remainedLine[..indexOfComma];
             var tradeId = tradeIdSpan.Length > 0 ? long.Parse(tradeIdSpan, CultureInfo.InvariantCulture) : -1;
             remainedLine = remainedLine[(indexOfComma + 1)..];
-            
+
             // PRICE_DEAL
             var executionPrice = remainedLine.Length > 0 ? double.Parse(remainedLine, CultureInfo.InvariantCulture) : double.NaN;
 

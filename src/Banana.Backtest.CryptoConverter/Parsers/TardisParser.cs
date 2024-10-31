@@ -21,7 +21,7 @@ public class TardisParser<TMarketDataType>(
     {
         marketDataItem = default;
         symbol1 = symbol;
-        
+
         try
         {
             if (_lineNumber == 0)
@@ -39,7 +39,7 @@ public class TardisParser<TMarketDataType>(
             _lineNumber++;
         }
     }
-    
+
     protected override void Dispose(bool disposing)
     {
     }

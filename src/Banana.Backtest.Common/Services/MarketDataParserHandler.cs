@@ -12,14 +12,14 @@ namespace Banana.Backtest.Common.Services;
 public class MarketDataParserHandler<TMarketDataType>(
     IOptions<MarketDataParserOptions> marketDataParserHandlerOptions,
     ILogger logger) : IParserHandler<TMarketDataType>
-    where TMarketDataType: unmanaged
+    where TMarketDataType : unmanaged
 {
     private readonly ConcurrentDictionary<MarketDataHash, IMarketDataCacheWriter<TMarketDataType>> _openedFiles = new();
     private readonly ILogger _logger = logger.ForContext<MarketDataParserHandler<TMarketDataType>>();
     private readonly FeedType _level = typeof(TMarketDataType).GetCustomAttribute<FeedAttribute>()?.Feed
                                        ?? throw new ArgumentException($"Feed type is not defined for {typeof(TMarketDataType).Name}. Ensure that {nameof(FeedAttribute)} is set.");
-        
-    private long _counter = 0;
+
+    private long _counter;
 
     public void Handle(MarketDataItem<TMarketDataType> marketDataItem, Symbol ticker)
     {
@@ -56,7 +56,7 @@ public class MarketDataParserHandler<TMarketDataType>(
     {
         return _openedFiles.GetOrAdd(
             marketDataHash,
-            hash => MarketDataCacheAccessor.CreateWriter<TMarketDataType>(
+            hash => MarketDataCacheAccessorProvider.CreateWriter<TMarketDataType>(
                 marketDataParserHandlerOptions.Value.OutputDirectory,
                 hash,
                 marketDataParserHandlerOptions.Value.CompressionType,

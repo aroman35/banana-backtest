@@ -21,7 +21,7 @@ public struct MarketDataHash : IEquatable<MarketDataHash>
             Feed = feed
         };
     }
-    
+
     public string FilePath(string? directory, string fileExtension = ".dat")
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);

@@ -7,6 +7,7 @@ public class RunAllInstrumentsHandlingCommand
     public RunAllInstrumentsHandlingCommand()
     {
     }
+
     public RunAllInstrumentsHandlingCommand(Exchange exchange)
     {
         Exchange = exchange;
@@ -21,7 +22,7 @@ public class RunAllInstrumentsHandlingCommand
     {
         EndDate = endDate;
     }
-    
+
     public DateOnly? StartDate { get; set; }
     public DateOnly? EndDate { get; set; }
     public Exchange Exchange { get; set; }

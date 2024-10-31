@@ -14,7 +14,7 @@ public class ConvertLevelUpdatesEndpoint(IBackgroundJobClient backgroundJobClien
         Post("/convert/level-updates");
         AllowAnonymous();
     }
-    
+
     public override Task HandleAsync(ConvertInstrumentCommand request, CancellationToken cancellationToken)
     {
         var hash = MarketDataHash.Create(request.Symbol, request.TradeDate, FeedType.LevelUpdates);

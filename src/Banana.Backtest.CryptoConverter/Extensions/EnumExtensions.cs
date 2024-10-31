@@ -8,7 +8,7 @@ public static class EnumExtensions
 {
     // Cache for Enum Value to Description
     private static readonly ConcurrentDictionary<Enum, string> EnumToDescriptionCache = new();
-    
+
     // Cache for Description to Enum Value
     private static readonly ConcurrentDictionary<Type, ConcurrentDictionary<string, Enum>> DescriptionToEnumCache = new();
 
@@ -24,7 +24,7 @@ public static class EnumExtensions
         // If not in cache, compute and cache the result
         var field = enumValue.GetType().GetField(enumValue.ToString());
         var description = enumValue.ToString(); // Default to the enum name if no description found
-        
+
         if (field != null)
         {
             var attribute = field.GetCustomAttribute<DescriptionAttribute>();
@@ -41,7 +41,8 @@ public static class EnumExtensions
     }
 
     // Retrieve the enum value from the description with caching
-    public static T GetEnumByDescription<T>(this string description) where T : Enum
+    public static T GetEnumByDescription<T>(this string description)
+        where T : Enum
     {
         var enumType = typeof(T);
 

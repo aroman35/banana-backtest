@@ -6,15 +6,20 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <CodeAnalysisRuleSet>./../StyleCop.Analyzers.ruleset</CodeAnalysisRuleSet>
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Banana.Backtest.Common\Banana.Backtest.Common.csproj" />
+        <ProjectReference Include="..\Banana.Backtest.Common\Banana.Backtest.Common.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="CommandLineParser" Version="2.9.1" />
-      <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+        <PackageReference Include="CommandLineParser" Version="2.9.1"/>
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0"/>
+        <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
     </ItemGroup>
 
 </Project>

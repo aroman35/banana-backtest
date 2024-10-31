@@ -24,7 +24,7 @@ public class SymbolCacheInfoEndpoint(CatalogRepository catalogRepository) : Endp
 
         if (hashes.Length == 0)
             return SymbolCacheInfoResponse.EmptyFor(symbol);
-        
+
         var startDate = hashes[^1].Date;
         var endDate = hashes[0].Date;
 

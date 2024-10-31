@@ -11,7 +11,7 @@ public class SymbolSystemTextJsonConverter : JsonConverter<Symbol>
     private SymbolSystemTextJsonConverter()
     {
     }
-    
+
     public override Symbol Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         var value = reader.GetString();

@@ -24,9 +24,9 @@ public class LevelUpdatesConvertor : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(settings.StoragePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(settings.OutputDirectoryPath);
         _hash = settings.Hash;
-        _orderUpdatesReader = MarketDataCacheAccessor.CreateReader<OrderUpdate>(settings.StoragePath, settings.Hash.For(FeedType.OrdersLog));
+        _orderUpdatesReader = MarketDataCacheAccessorProvider.CreateReader<OrderUpdate>(settings.StoragePath, settings.Hash.For(FeedType.OrdersLog));
         if (!_orderUpdatesReader.IsEmpty)
-            _levelUpdatesWriter = MarketDataCacheAccessor.CreateWriter<LevelUpdate>(settings.OutputDirectoryPath, settings.Hash.For(FeedType.LevelUpdates), CompressionType.NoCompression, CompressionLevel.NoCompression);
+            _levelUpdatesWriter = MarketDataCacheAccessorProvider.CreateWriter<LevelUpdate>(settings.OutputDirectoryPath, settings.Hash.For(FeedType.LevelUpdates), CompressionType.NoCompression, CompressionLevel.NoCompression);
         _logger = logger.ForContext<LevelUpdatesConvertor>();
     }
 
@@ -37,7 +37,7 @@ public class LevelUpdatesConvertor : IDisposable
         var startedTimestamp = Stopwatch.GetTimestamp();
         Span<MarketDataItem<OrderUpdate>> currentBatchOrders = stackalloc MarketDataItem<OrderUpdate>[2048];
         var currentBatchIterator = 0;
-        
+
         foreach (var orderUpdate in _orderUpdatesReader.ContinueReadUntil())
         {
             var isBookUpdated = _currentTimestamp != orderUpdate.Timestamp;
@@ -84,7 +84,7 @@ public class LevelUpdatesConvertor : IDisposable
         {
             _levelUpdatesWriter?.Write(levelUpdate);
         }
-        
+
         _askLevelUpdate.Clear();
         _bidLevelUpdate.Clear();
     }

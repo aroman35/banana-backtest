@@ -12,7 +12,7 @@ public struct Asset : IEquatable<Asset>, IEquatable<string>
     private static readonly ConcurrentDictionary<Asset, string> _assetToStringMap = new();
     private static readonly ConcurrentDictionary<string, Asset> _stringToAssetMap = new();
     private ulong _asset;
-    
+
     public static readonly Asset USDT = Parse("USDT");
     public static readonly Asset USD = Parse("USD");
     public static readonly Asset BTC = Parse("BTC");
@@ -76,7 +76,7 @@ public struct Asset : IEquatable<Asset>, IEquatable<string>
     {
         return obj is Asset asset && Equals(asset);
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Equals([NotNullWhen(true)]string? rawAssetValue)
     {
@@ -100,11 +100,11 @@ public struct Asset : IEquatable<Asset>, IEquatable<string>
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator !=(Asset a, string b) => !a.Equals(b);
-    
+
     public override int GetHashCode()
     {
         return _asset.GetHashCode();
     }
-    
+
     #endregion
 }

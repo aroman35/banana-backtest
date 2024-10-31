@@ -46,7 +46,7 @@ public struct Version
         var major = BitConverter.ToInt32(versionRaw[..nextDotIndex]);
         var remained = versionRaw[(nextDotIndex + 1)..];
         nextDotIndex = remained.IndexOf(dot);
-        
+
         if (nextDotIndex == -1)
         {
             return Create(major, BitConverter.ToInt32(remained));
@@ -54,7 +54,7 @@ public struct Version
 
         var minor = BitConverter.ToInt32(remained[..nextDotIndex]);
         remained = remained[(nextDotIndex + 1)..];
-        
+
         nextDotIndex = remained.IndexOf(dot);
         if (nextDotIndex != -1)
             throw new InvalidOperationException("Version format is invalid");
@@ -67,7 +67,7 @@ public struct Version
     {
         return other.Major == Major && other.Minor == Minor;
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator Version(int value)
     {

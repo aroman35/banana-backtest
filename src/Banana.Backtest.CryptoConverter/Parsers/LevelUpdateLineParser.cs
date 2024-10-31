@@ -75,7 +75,8 @@ public class LevelUpdateLineParser : ILineParser<LevelUpdate>
             IsSnapshot = isSnapshot,
             Price = price,
             Quantity = quantity
-        }, timestamp);
+        },
+            timestamp);
 
         return true;
     }

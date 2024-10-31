@@ -12,14 +12,13 @@ public class RedisOptions
     /// <summary>
     /// Redis password
     /// </summary>
-
     public string Password { get; init; } = null!;
 
     /// <summary>
     /// Redis KeyPrefix
     /// </summary>
     public string KeyPrefix { get; init; } = null!;
-    
+
     /// <summary>
     /// ServiceName in Sentinel
     /// </summary>

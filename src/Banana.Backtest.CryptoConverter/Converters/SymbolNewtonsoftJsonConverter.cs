@@ -10,13 +10,17 @@ public class SymbolNewtonsoftJsonConverter : JsonConverter<Symbol>
     private SymbolNewtonsoftJsonConverter()
     {
     }
-    
+
     public override void WriteJson(JsonWriter writer, Symbol value, JsonSerializer serializer)
     {
         writer.WriteValue(value.ToString());
     }
 
-    public override Symbol ReadJson(JsonReader reader, Type objectType, Symbol existingValue, bool hasExistingValue,
+    public override Symbol ReadJson(
+        JsonReader reader,
+        Type objectType,
+        Symbol existingValue,
+        bool hasExistingValue,
         JsonSerializer serializer)
     {
         ArgumentNullException.ThrowIfNull(reader.Value);

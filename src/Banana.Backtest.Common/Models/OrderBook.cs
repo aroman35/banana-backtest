@@ -100,7 +100,7 @@ public class OrderBook
             {
                 bidsFinished = true;
             }
-            
+
             if (!asksFinished && asksEnumerator.MoveNext())
             {
                 var ask = asksEnumerator.Current;
@@ -111,7 +111,7 @@ public class OrderBook
                 asksFinished = true;
             }
         }
-        
+
         return snapshot;
     }
 }

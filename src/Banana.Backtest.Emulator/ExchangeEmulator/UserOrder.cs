@@ -43,7 +43,7 @@ public struct UserExecution
             Timestamp = Helpers.Timestamp
         };
     }
-    
+
     public static unsafe UserExecution OrderPartiallyFill(UserOrder* orderPtr, double executedQuantity)
     {
         var execution = new UserExecution

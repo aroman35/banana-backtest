@@ -1,7 +1,7 @@
-﻿using System.Runtime.InteropServices;
-using Banana.Backtest.Common.Extensions;
+﻿namespace Banana.Backtest.Common.Models.MarketData;
 
-namespace Banana.Backtest.Common.Models.MarketData;
+using System.Runtime.InteropServices;
+using Extensions;
 
 [StructLayout(LayoutKind.Sequential)]
 public struct MarketDataItem<TMarketData>(TMarketData item, long timestamp)
@@ -11,7 +11,9 @@ public struct MarketDataItem<TMarketData>(TMarketData item, long timestamp)
     public TMarketData Item = item;
 
     public DateTime DateTime => Timestamp.AsDateTime();
+
     public DateOnly Date => DateOnly.FromDateTime(DateTime);
+
     public TimeOnly Time => TimeOnly.FromDateTime(DateTime);
 
     public override string ToString()

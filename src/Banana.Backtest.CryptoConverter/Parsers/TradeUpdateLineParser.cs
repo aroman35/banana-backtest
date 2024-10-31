@@ -17,7 +17,7 @@ public class TradeUpdateLineParser : ILineParser<TradeUpdate>
         if (indexOfComma == -1)
             return false;
         var remainedLine = line[(indexOfComma + 1)..];
-        
+
         // symbol
         indexOfComma = remainedLine.IndexOf(COMMA);
         if (indexOfComma == -1)
@@ -33,13 +33,13 @@ public class TradeUpdateLineParser : ILineParser<TradeUpdate>
             return false;
         timestamp /= 1000;
         remainedLine = remainedLine[(indexOfComma + 1)..];
-        
+
         // local_timestamp
         indexOfComma = remainedLine.IndexOf(COMMA);
         if (indexOfComma == -1)
             return false;
         remainedLine = remainedLine[(indexOfComma + 1)..];
-        
+
         // id
         indexOfComma = remainedLine.IndexOf(COMMA);
         if (indexOfComma == -1)
@@ -48,7 +48,7 @@ public class TradeUpdateLineParser : ILineParser<TradeUpdate>
         if (!long.TryParse(idSpan, CultureInfo.InvariantCulture, out var id))
             return false;
         remainedLine = remainedLine[(indexOfComma + 1)..];
-        
+
         // side
         indexOfComma = remainedLine.IndexOf(COMMA);
         if (indexOfComma == -1)
@@ -76,7 +76,8 @@ public class TradeUpdateLineParser : ILineParser<TradeUpdate>
             Quantity = quantity,
             Side = side,
             TradeId = id
-        }, timestamp);
+        },
+            timestamp);
 
         return true;
     }

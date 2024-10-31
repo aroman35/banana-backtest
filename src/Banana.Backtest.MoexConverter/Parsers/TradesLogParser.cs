@@ -18,7 +18,7 @@ public class TradesLogParser(string filePath, IParserHandler<TradeUpdate> parser
         // #SYMBOL,SYSTEM,MOMENT,ID_DEAL,PRICE_DEAL,VOLUME,OPEN_POS,DIRECTION
         marketDataItem = default;
         symbol = default;
-        
+
         if (line.Length == 0)
             return false;
         if (line[0] == '#')
@@ -31,11 +31,11 @@ public class TradesLogParser(string filePath, IParserHandler<TradeUpdate> parser
             var symbolSpan = line[..indexOfComma];
             symbol = Symbol.Create(Asset.Parse(symbolSpan), Asset.SPBFUT, Exchange.MoexFutures);
             var remainedLine = line[(indexOfComma + 1)..];
-            
+
             // SYSTEM
             indexOfComma = remainedLine.IndexOf(COMMA);
             remainedLine = remainedLine[(indexOfComma + 1)..];
-            
+
             // MOMENT
             indexOfComma = remainedLine.IndexOf(COMMA);
             var timestampSpanBytes = remainedLine[..indexOfComma];
@@ -46,15 +46,15 @@ public class TradesLogParser(string filePath, IParserHandler<TradeUpdate> parser
                 TIMESTAMP_FORMAT,
                 CultureInfo.InvariantCulture)
                 .ToUnixTimeMilliseconds();
-            
+
             remainedLine = remainedLine[(indexOfComma + 1)..];
-            
+
             // ID_DEAL
             indexOfComma = remainedLine.IndexOf(COMMA);
             var tradeIdSpan = remainedLine[..indexOfComma];
             var tradeId = long.Parse(tradeIdSpan, CultureInfo.InvariantCulture);
             remainedLine = remainedLine[(indexOfComma + 1)..];
-            
+
             // PRICE_DEAL
             indexOfComma = remainedLine.IndexOf(COMMA);
             var priceSpan = remainedLine[..indexOfComma];
@@ -66,15 +66,15 @@ public class TradesLogParser(string filePath, IParserHandler<TradeUpdate> parser
             var quantitySpan = remainedLine[..indexOfComma];
             var quantity = long.Parse(quantitySpan, CultureInfo.InvariantCulture);
             remainedLine = remainedLine[(indexOfComma + 1)..];
-            
+
             // OPEN_POS
             indexOfComma = remainedLine.IndexOf(COMMA);
             remainedLine = remainedLine[(indexOfComma + 1)..];
-            
+
             // DIRECTION
             var side = remainedLine[0] == BUY_SIDE ? Side.Long : Side.Short;
 
-            
+
             marketDataItem = new MarketDataItem<TradeUpdate>
             {
                 Timestamp = timestamp,
