@@ -24,6 +24,7 @@ jobs:
         uses: reecetech/version-increment@2024.10.1
         id: version
         with:
+          use_api: true
           scheme: semver
           increment: patch
       - name: Set tags variables based on branch
