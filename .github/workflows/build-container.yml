@@ -21,7 +21,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Version Increment
-        uses: reecetech/version-increment@2023.10.2
+        uses: reecetech/version-increment@2024.10.1
         id: version
         with:
           scheme: semver
