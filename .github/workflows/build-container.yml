@@ -48,7 +48,7 @@ jobs:
         run: |
           dotnet publish \
           -p PublishProfile=DefaultContainer \
-          -p ContainerImageTags='${{ needs.version_increment.outputs.TAGS }}' \
+          -p ContainerImageTags="${{ needs.version_increment.outputs.TAGS }}" \
           -p ContainerFamily=${{ vars.CONTAINER_FAMILY }} \
           -p ContainerRuntimeIdentifier=${{ vars.CONTAINER_RUNTIME_IDENTIFIER }} \
           -p ContainerRepository=${{ vars.REGISTRY_ID }}
