@@ -39,6 +39,9 @@ public unsafe class MarketDataCacheAccessor<TMarketDataType> : IMarketDataCacheW
         _compressionLevel = compressionLevel;
         var filePath = hash.FilePath(sourcesDirectory);
 
+        if (File.Exists(filePath))
+            File.Delete(filePath);
+
         var options = new FileStreamOptions
         {
             Access = FileAccess.Write,
