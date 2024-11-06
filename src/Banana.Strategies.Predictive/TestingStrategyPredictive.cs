@@ -9,11 +9,11 @@ namespace Banana.Strategies.Predictive;
 
 public class TestingStrategyPredictive : IStrategy
 {
-    private readonly SortedDictionary<long, KeyValuePair<double, Vector512<double>>> _ratiosByTimestampWithMidPrice = new();
+    private readonly SortedDictionary<long, KeyValuePair<double, Vector256<double>>> _ratiosByTimestampWithMidPrice = new();
 
     public unsafe void OrderBookUpdated(MarketDataItem<OrderBookSnapshot> orderBookSnapshot)
     {
-        const int vectorSize = 512 / sizeof(double) / 8;
+        const int vectorSize = 256 / sizeof(double) / 8;
         var midPrice = orderBookSnapshot.Item.MidPrice;
         var bidLevelDepths = stackalloc double[vectorSize];
         var askLevelDepths = stackalloc double[vectorSize];
@@ -24,7 +24,7 @@ public class TestingStrategyPredictive : IStrategy
 
         CalculateOrderBookWeights(orderBookSnapshot.Item.Bids, bidLevelDepths, bidVolumeWeightedAvgPrices, vectorSize);
         CalculateOrderBookWeights(orderBookSnapshot.Item.Asks, askLevelDepths, askVolumeWeightedAvgPrices, vectorSize);
-        
+
         // todo: with avx
         for (var i = 0; i < 3; i++)
         {
@@ -37,17 +37,17 @@ public class TestingStrategyPredictive : IStrategy
             vwapDiff[i] = (askLevelDepths[i] + bidLevelDepths[i]) / 2 / midPrice - 1.0;
         }
 
-        var ratios = Avx512F.LoadVector512(depthRatios);
-        _ratiosByTimestampWithMidPrice.Add(orderBookSnapshot.Timestamp, new KeyValuePair<double, Vector512<double>>(midPrice, ratios));
-        var ratioSums = Vector512<double>.Zero;
+        var ratios = Avx2.LoadVector256(depthRatios);
+        _ratiosByTimestampWithMidPrice.Add(orderBookSnapshot.Timestamp, new KeyValuePair<double, Vector256<double>>(midPrice, ratios));
+        var ratioSums = Vector256<double>.Zero;
 
         // Add removal for non-actual
         foreach (var historicalRatio in _ratiosByTimestampWithMidPrice.Values)
         {
-            ratioSums = Avx512F.Add(ratioSums, historicalRatio.Value);
+            ratioSums = Avx2.Add(ratioSums, historicalRatio.Value);
         }
-        var count = Vector512.Create((double)_ratiosByTimestampWithMidPrice.Count);
-        var avgRatios = Avx512F.Divide(ratioSums, count);
+        var count = Vector256.Create((double)_ratiosByTimestampWithMidPrice.Count);
+        var avgRatios = Avx2.Divide(ratioSums, count);
     }
 
     public void AnonymousTradeReceived(MarketDataItem<TradeUpdate> trade)
