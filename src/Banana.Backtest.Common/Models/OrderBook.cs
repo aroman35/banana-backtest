@@ -121,6 +121,7 @@ public struct OrderBookSnapshot
     public OrderBookLevels20 Bids;
     public OrderBookLevels20 Asks;
     public long Timestamp;
+    public double MidPrice => (Bids[0].Price + Asks[0].Price) / 2;
 }
 
 [System.Runtime.CompilerServices.InlineArray(20)]
