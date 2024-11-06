@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 using Banana.Backtest.Common.Extensions;
@@ -12,31 +11,33 @@ public class TestingStrategyPredictive : IStrategy
 {
     private readonly SortedDictionary<long, KeyValuePair<double, Vector512<double>>> _ratiosByTimestampWithMidPrice = new();
 
-    public void OrderBookUpdated(MarketDataItem<OrderBookSnapshot> orderBookSnapshot)
+    public unsafe void OrderBookUpdated(MarketDataItem<OrderBookSnapshot> orderBookSnapshot)
     {
+        const int vectorSize = 512 / sizeof(double) / 8;
         var midPrice = orderBookSnapshot.Item.MidPrice;
-        var bidLevelDepths = ArrayPool<double>.Shared.Rent(3);
-        var askLevelDepths = ArrayPool<double>.Shared.Rent(3);
-        var bidVolumeWeightedAvgPrices = ArrayPool<double>.Shared.Rent(8);
-        var askVolumeWeightedAvgPrices = ArrayPool<double>.Shared.Rent(8);
+        var bidLevelDepths = stackalloc double[vectorSize];
+        var askLevelDepths = stackalloc double[vectorSize];
+        var bidVolumeWeightedAvgPrices = stackalloc double[vectorSize];
+        var askVolumeWeightedAvgPrices = stackalloc double[vectorSize];
+        var depthRatios = stackalloc double[vectorSize];
+        var vwapDiff = stackalloc double[vectorSize];
 
-        CalculateOrderBookWeights(orderBookSnapshot.Item.Bids, bidLevelDepths, bidVolumeWeightedAvgPrices);
-        CalculateOrderBookWeights(orderBookSnapshot.Item.Asks, askLevelDepths, askVolumeWeightedAvgPrices);
+        CalculateOrderBookWeights(orderBookSnapshot.Item.Bids, bidLevelDepths, bidVolumeWeightedAvgPrices, vectorSize);
+        CalculateOrderBookWeights(orderBookSnapshot.Item.Asks, askLevelDepths, askVolumeWeightedAvgPrices, vectorSize);
         
-        var depthRatios = ArrayPool<double>.Shared.Rent(3);
-        var vwapDiff = ArrayPool<double>.Shared.Rent(8);
-        
+        // todo: with avx
         for (var i = 0; i < 3; i++)
         {
             depthRatios[i] = bidLevelDepths[i] / askLevelDepths[i];
         }
 
+        // todo: with avx
         for (var i = 0; i < 8; i++)
         {
             vwapDiff[i] = (askLevelDepths[i] + bidLevelDepths[i]) / 2 / midPrice - 1.0;
         }
 
-        var ratios = Vector512.Create(depthRatios);
+        var ratios = Avx512F.LoadVector512(depthRatios);
         _ratiosByTimestampWithMidPrice.Add(orderBookSnapshot.Timestamp, new KeyValuePair<double, Vector512<double>>(midPrice, ratios));
         var ratioSums = Vector512<double>.Zero;
 
@@ -47,14 +48,6 @@ public class TestingStrategyPredictive : IStrategy
         }
         var count = Vector512.Create((double)_ratiosByTimestampWithMidPrice.Count);
         var avgRatios = Avx512F.Divide(ratioSums, count);
-        
-        // defer
-        ArrayPool<double>.Shared.Return(bidLevelDepths);
-        ArrayPool<double>.Shared.Return(askLevelDepths);
-        ArrayPool<double>.Shared.Return(bidVolumeWeightedAvgPrices);
-        ArrayPool<double>.Shared.Return(askVolumeWeightedAvgPrices);
-        ArrayPool<double>.Shared.Return(depthRatios);
-        ArrayPool<double>.Shared.Return(vwapDiff);
     }
 
     public void AnonymousTradeReceived(MarketDataItem<TradeUpdate> trade)
@@ -79,7 +72,7 @@ public class TestingStrategyPredictive : IStrategy
 
     // Move to order book extensions
     // View order-book levels as Vector512<double> of bidPrices | bidQuantities | askPrices | askQuantities
-    private void CalculateOrderBookWeights(OrderBookLevels20 levels, double[] quantities, double[] volumeWeightedAvgPrices)
+    private unsafe void CalculateOrderBookWeights(OrderBookLevels20 levels, double* quantities, double* volumeWeightedAvgPrices, int length)
     {
         // LEVELS_STEPS step = 3; count = 3;
         // VOLUME_STEPS step = 1000; count = 8;
@@ -87,7 +80,7 @@ public class TestingStrategyPredictive : IStrategy
         ReadOnlySpan<int> volumeGroups = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000]; // To Options
         var totalVolume = 0.0;
         var totalQuantity = 0.0;
-        for (var i = 0; i < 9; i++)
+        for (var i = 0; i < length; i++)
         {
             var level = levels[i];
             if (level.Quantity.IsEquals(0.0))
