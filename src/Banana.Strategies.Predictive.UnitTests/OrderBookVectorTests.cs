@@ -1,3 +1,4 @@
+using System.Runtime.Intrinsics.X86;
 using Banana.Backtest.Common.Extensions;
 using Banana.Strategies.Predictive.Simd;
 

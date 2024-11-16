@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Banana.Strategies.Predictiv
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Banana.Strategies.Predictive.UnitTests", "src\Banana.Strategies.Predictive.UnitTests\Banana.Strategies.Predictive.UnitTests.csproj", "{FA27CCA7-1965-42D8-9144-E0CC387582D7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Banana.Backtest.Launcher", "src\Banana.Backtest.Launcher\Banana.Backtest.Launcher.csproj", "{C4AD9393-EB2B-408D-9B91-488FB2F45882}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +47,10 @@ Global
 		{FA27CCA7-1965-42D8-9144-E0CC387582D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FA27CCA7-1965-42D8-9144-E0CC387582D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FA27CCA7-1965-42D8-9144-E0CC387582D7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C4AD9393-EB2B-408D-9B91-488FB2F45882}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C4AD9393-EB2B-408D-9B91-488FB2F45882}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C4AD9393-EB2B-408D-9B91-488FB2F45882}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C4AD9393-EB2B-408D-9B91-488FB2F45882}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{B00AD09F-63EE-4071-BCA9-A0158FDA78DB} = {B0FD77C2-53ED-4AB1-A178-47350BAB2E23}
@@ -53,5 +59,6 @@ Global
 		{F5FE4D78-3708-44BE-801D-80932F08A4E7} = {B0FD77C2-53ED-4AB1-A178-47350BAB2E23}
 		{14ACA71C-9644-4814-A733-6C4C15F8715D} = {B0FD77C2-53ED-4AB1-A178-47350BAB2E23}
 		{FA27CCA7-1965-42D8-9144-E0CC387582D7} = {B0FD77C2-53ED-4AB1-A178-47350BAB2E23}
+		{C4AD9393-EB2B-408D-9B91-488FB2F45882} = {B0FD77C2-53ED-4AB1-A178-47350BAB2E23}
 	EndGlobalSection
 EndGlobal
