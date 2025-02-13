@@ -7,10 +7,13 @@ public static class MarketDataCacheAccessorProvider
 {
     public static IMarketDataCacheReader<TMarketDataType> CreateReader<TMarketDataType>(
         string? sourcesDirectory,
-        MarketDataHash hash)
+        MarketDataHash hash,
+        bool mmf = false)
         where TMarketDataType : unmanaged
     {
-        return new MarketDataCacheAccessor<TMarketDataType>(sourcesDirectory, hash);
+        return mmf
+            ? new MarketDataCacheReaderMmf<TMarketDataType>(sourcesDirectory, hash)
+            : new MarketDataCacheAccessor<TMarketDataType>(sourcesDirectory, hash);
     }
 
     public static IMarketDataCacheWriter<TMarketDataType> CreateWriter<TMarketDataType>(

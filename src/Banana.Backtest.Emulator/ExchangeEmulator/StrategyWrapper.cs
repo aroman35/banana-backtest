@@ -1,7 +1,14 @@
 ﻿using System.Diagnostics;
+using System.Globalization;
 using Banana.Backtest.Common.Extensions;
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.MarketData;
+using CsvHelper;
+using CsvHelper.Configuration;
+using MathNet.Numerics.Statistics;
+using Microsoft.ML;
+using Microsoft.ML.Trainers;
+using ScottPlot;
 using Serilog;
 
 namespace Banana.Backtest.Emulator.ExchangeEmulator;
@@ -18,7 +25,11 @@ public class StrategyWrapper : IStrategy
     private readonly long _tradeDateOpenTimestamp;
     private readonly long _tradeDateCloseTimestamp;
     private readonly long _simulationStartedTimestamp;
+    private readonly List<OrderBookSnapshot> _allOrderBooks = new();
+    private readonly List<MarketDataItem<TradeUpdate>> _allTrades = new();
+    private readonly List<FeaturesClass> _features = new();
     private OrderBookSnapshot _orderBook;
+    private OrderBookDataClass _orderBookDataClass = new(25);
 
     private double _volumeExecuted;
     private double _volumeStd;
@@ -41,45 +52,15 @@ public class StrategyWrapper : IStrategy
 
     public void OrderBookUpdated(MarketDataItem<OrderBookSnapshot> orderBookSnapshot)
     {
-        if (orderBookSnapshot.Timestamp < _tradeDateOpenTimestamp || orderBookSnapshot.Timestamp > _tradeDateCloseTimestamp)
-            return;
-        _orderBook = orderBookSnapshot.Item;
+        var features = _orderBookDataClass.Generate(orderBookSnapshot.Item);
+        features.FeaturesTimestamp = orderBookSnapshot.DateTime;
+        _features.AddRange(features);
     }
 
     public unsafe void AnonymousTradeReceived(MarketDataItem<TradeUpdate> trade)
     {
-        _lastPx = trade.Item.Price;
-        if (trade.Timestamp < _tradeDateOpenTimestamp || trade.Timestamp > _tradeDateCloseTimestamp)
-            return;
-        _volumeExecuted += trade.Item.Volume;
-        _trades[_tradesIdx++] = trade.Item;
-        if (_tradesIdx == DATA_DEPTH)
-        {
-            var volumesSpan = stackalloc double[DATA_DEPTH];
-
-            fixed (TradeUpdate* tradesPtr = _trades)
-            {
-                for (var i = 0; i < DATA_DEPTH; i++)
-                {
-                    volumesSpan[i] = tradesPtr[i].Volume;
-                }
-            }
-
-            _volumeStd = StandardDeviation(volumesSpan, DATA_DEPTH);
-            _volumeEwma = Ewma(volumesSpan, DATA_DEPTH, 0.27);
-            _tradesIdx = 0;
-            var isLong = Math.Log10(_volumeStd).IsGreater(Math.Log10(_volumeEwma));
-            var order = new UserOrder
-            {
-                Price = isLong ? _orderBook.Asks[0].Price : _orderBook.Bids[0].Price,
-                Quantity = 2,
-                Timestamp = Helpers.Timestamp,
-                Side = isLong ? Side.Long : Side.Short,
-                ClientOrderId = Guid.NewGuid(),
-                Id = Helpers.NextId
-            };
-            PlaceOrder(order);
-        }
+        // _logger.Information("Anonymous trade received");
+        _allTrades.Add(trade);
     }
 
     public void UserExecutionReceived(UserExecution userExecution)
@@ -95,6 +76,9 @@ public class StrategyWrapper : IStrategy
 
     public void SimulationFinished()
     {
+        // BuildVerificationData();
+        TrainModel();
+        return;
         var remainedLimit = _userExecutions
             .Sum(execution => execution.ExecutedQuantity * (int)execution.Side);
 
@@ -117,6 +101,218 @@ public class StrategyWrapper : IStrategy
             brokerFee,
             executedVolume,
             elapsedTime);
+    }
+
+    private void BuildVerificationData()
+    {
+        var pricesMovingAvg = Statistics.MovingAverage(_allTrades.Select(x => x.Item.Price), 50).ToArray();
+        var tradesIdx = 0;
+        foreach (var feature in _features)
+        {
+            var featureTimestamp = feature.FeaturesTimestamp;
+            for (; tradesIdx < _allTrades.Count; tradesIdx++)
+            {
+                var tradeTimestamp = _allTrades[tradesIdx].DateTime;
+                if (tradeTimestamp < featureTimestamp)
+                    continue;
+                if ((tradeTimestamp - featureTimestamp).TotalSeconds < 5)
+                    continue;
+                var maPrice = pricesMovingAvg[tradesIdx];
+                feature.Next5SecPrice = maPrice;
+                feature.Rate5Sec = maPrice / feature.MidPrice - 1;
+                break;
+            }
+        }
+
+        var preCalculatedFeatures = _features.Select(MlDataInputClass.Create).ToList();
+        using (var fileWriter = new StreamWriter("D:/models/test_data.csv"))
+        {
+            using (var csv = new CsvWriter(fileWriter, new CsvConfiguration(CultureInfo.InvariantCulture)
+                   {
+                       HasHeaderRecord = true
+                   }))
+            {
+                csv.WriteRecords(preCalculatedFeatures);
+            }
+        }
+        _logger.Information("Verification data saved");
+    }
+
+    private void TrainModel()
+    {
+        var pricesMovingAvg = Statistics.MovingAverage(_allTrades.Select(x => x.Item.Price), 50).ToArray();
+        var trendChangedIndexes = FindTrendReversalIndices(pricesMovingAvg, 0.001);
+        var trendPoints = trendChangedIndexes.Select(x => _allTrades[x].Timestamp.AsDateTime().ToOADate()).ToArray();
+        var trendPrices = trendChangedIndexes.Select(x => pricesMovingAvg[x]).ToArray();
+
+        var plot = new ScottPlot.Plot();
+        var times = _allTrades.Select(x => x.Timestamp.AsDateTime().ToOADate()).ToArray();
+        var pricesScatter = plot.AddScatter(times, pricesMovingAvg, label: "Prices");
+        pricesScatter.LineWidth = 2;
+        var pointsScatter = plot.AddScatter(trendPoints.ToArray(), trendPrices.ToArray(), label: "Points");
+        pointsScatter.MarkerSize = 10;
+        pointsScatter.MarkerShape = MarkerShape.filledCircle;
+        plot.XAxis.DateTimeFormat(true);
+        var filename = $"D:\\models\\chart_001.jpg";
+        plot.SaveFig(filename, 5120, 1440);
+
+        var tradesIdx = 0;
+        foreach (var feature in _features)
+        {
+            var featureTimestamp = feature.FeaturesTimestamp;
+            for (; tradesIdx < _allTrades.Count; tradesIdx++)
+            {
+                var tradeTimestamp = _allTrades[tradesIdx].DateTime;
+                if (tradeTimestamp < featureTimestamp)
+                    continue;
+                if ((tradeTimestamp - featureTimestamp).TotalSeconds < 5)
+                    continue;
+                var maPrice = pricesMovingAvg[tradesIdx];
+                feature.Next5SecPrice = maPrice;
+                feature.Rate5Sec = maPrice / feature.MidPrice - 1;
+                break;
+            }
+        }
+
+        _logger.Information("Preparing data for model");
+        var mlContext = new MLContext(seed: 0);
+        var model = Train(mlContext, _features.Select(MlDataInputClass.Create));
+        EvaluateModel(mlContext, model);
+
+        // using (var outputModelFileStream = File.Create("D:/models/regression.onnx"))
+        // {
+        //     mlContext.Model.ConvertToOnnx(model, dataView, outputModelFileStream);
+        // }
+        _logger.Information("Model trained");
+    }
+
+    public static List<int> FindTrendReversalIndices(double[] prices, double thresholdPercent)
+    {
+        List<int> reversalIndices = new List<int>();
+
+        // Если данных недостаточно – возвращаем пустой список
+        if (prices == null || prices.Length < 2)
+            return reversalIndices;
+
+        // Инициализация: первая цена считается исходной точкой
+        int lastExtremeIndex = 0;
+        double lastExtremePrice = prices[0];
+        reversalIndices.Add(lastExtremeIndex);
+
+        // currentTrend: 0 - неопределён, 1 - восходящий, -1 - нисходящий
+        int currentTrend = 0;
+
+        // Проходим по массиву начиная со второй цены
+        for (int i = 1; i < prices.Length; i++)
+        {
+            double price = prices[i];
+
+            if (currentTrend == 0)
+            {
+                // Определяем начальный тренд, если цена изменилась достаточно
+                if (price >= lastExtremePrice * (1 + thresholdPercent))
+                {
+                    currentTrend = 1; // восходящий тренд
+                    lastExtremeIndex = i;
+                    lastExtremePrice = price;
+                    reversalIndices.Add(i);
+                }
+                else if (price <= lastExtremePrice * (1 - thresholdPercent))
+                {
+                    currentTrend = -1; // нисходящий тренд
+                    lastExtremeIndex = i;
+                    lastExtremePrice = price;
+                    reversalIndices.Add(i);
+                }
+            }
+            // если тренд восходящий
+            else if (currentTrend == 1)
+            {
+                if (price > lastExtremePrice)
+                {
+                    // Цена продолжает расти — обновляем максимум
+                    lastExtremeIndex = i;
+                    lastExtremePrice = price;
+                    // Обновляем последний зафиксированный экстремум (точку разворота)
+                    reversalIndices[reversalIndices.Count - 1] = i;
+                }
+                else if (price <= lastExtremePrice * (1 - thresholdPercent))
+                {
+                    // Если цена упала более чем на thresholdPercent от максимума,
+                    // регистрируем разворот: восходящий -> нисходящий
+                    currentTrend = -1;
+                    lastExtremeIndex = i;
+                    lastExtremePrice = price;
+                    reversalIndices.Add(i);
+                }
+            }
+            // если тренд нисходящий
+            else if (currentTrend == -1)
+            {
+                if (price < lastExtremePrice)
+                {
+                    // Цена продолжает снижаться — обновляем минимум
+                    lastExtremeIndex = i;
+                    lastExtremePrice = price;
+                    reversalIndices[reversalIndices.Count - 1] = i;
+                }
+                else if (price >= lastExtremePrice * (1 + thresholdPercent))
+                {
+                    // Если цена выросла более чем на thresholdPercent от минимума,
+                    // регистрируем разворот: нисходящий -> восходящий
+                    currentTrend = 1;
+                    lastExtremeIndex = i;
+                    lastExtremePrice = price;
+                    reversalIndices.Add(i);
+                }
+            }
+        }
+
+        return reversalIndices;
+    }
+
+    private ITransformer Train(MLContext mlContext, IEnumerable<MlDataInputClass> data)
+    {
+        var dataView = mlContext.Data.LoadFromEnumerable(data);
+        var pipeline = mlContext.Transforms
+            .CopyColumns(outputColumnName: "Label", inputColumnName: "Rate5Sec")
+            .Append(mlContext.Transforms.Concatenate("Features",
+                "Bid1PriceMA",
+                "Bid2PriceMA",
+                "Bid3PriceMA",
+                "Bid4PriceMA",
+                "Bid1VolumeMA",
+                "Bid2VolumeMA",
+                "Bid3VolumeMA",
+                "Bid4VolumeMA",
+                "Ask1PriceMA",
+                "Ask2PriceMA",
+                "Ask3PriceMA",
+                "Ask4PriceMA",
+                "Ask1VolumeMA",
+                "Ask2VolumeMA",
+                "Ask3VolumeMA",
+                "Ask4VolumeMA",
+                "PeriodMs"))
+            .Append(mlContext.Regression.Trainers.FastTree());
+        _logger.Information("Training model");
+        var model = pipeline.Fit(dataView);
+        return model;
+    }
+
+    private void EvaluateModel(MLContext mlContext, ITransformer model)
+    {
+        var dataView = mlContext.Data.LoadFromTextFile<MlDataInputClass>("D:/models/test_data.csv", hasHeader: true, separatorChar: ',');
+        var predictions = model.Transform(dataView);
+        var metrics = mlContext.Regression.Evaluate(predictions, "Label", "Score");
+        _logger.Information("Metrics evaluated");
+        _logger.Information("RSquared Score: {RSquared}", metrics.RSquared);
+        _logger.Information("RootMeanSquaredError: {RootMeanSquaredError}", metrics.RootMeanSquaredError);
+    }
+
+    private void TestSinglePrediction(MLContext mlContext, ITransformer model)
+    {
+        var predictionFunction = mlContext.Model.CreatePredictionEngine<MlDataInputClass, MlDataOutputClass>(model);
     }
 
     private static unsafe double StandardDeviation(double* dataPtr, int size)

@@ -22,8 +22,8 @@ public class TestingStrategyPredictive : IStrategy
         var depthRatios = stackalloc double[vectorSize];
         var vwapDiff = stackalloc double[vectorSize];
 
-        CalculateOrderBookWeights(orderBookSnapshot.Item.Bids, bidLevelDepths, bidVolumeWeightedAvgPrices, vectorSize);
-        CalculateOrderBookWeights(orderBookSnapshot.Item.Asks, askLevelDepths, askVolumeWeightedAvgPrices, vectorSize);
+        // CalculateOrderBookWeights(orderBookSnapshot.Item.Bids, bidLevelDepths, bidVolumeWeightedAvgPrices, vectorSize);
+        // CalculateOrderBookWeights(orderBookSnapshot.Item.Asks, askLevelDepths, askVolumeWeightedAvgPrices, vectorSize);
 
         // todo: with avx
         for (var i = 0; i < 3; i++)
@@ -72,33 +72,33 @@ public class TestingStrategyPredictive : IStrategy
 
     // Move to order book extensions
     // View order-book levels as Vector512<double> of bidPrices | bidQuantities | askPrices | askQuantities
-    private unsafe void CalculateOrderBookWeights(OrderBookLevels20 levels, double* quantities, double* volumeWeightedAvgPrices, int length)
-    {
-        // LEVELS_STEPS step = 3; count = 3;
-        // VOLUME_STEPS step = 1000; count = 8;
-        ReadOnlySpan<int> levelGroups = [3, 6, 9]; // To Options
-        ReadOnlySpan<int> volumeGroups = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000]; // To Options
-        var totalVolume = 0.0;
-        var totalQuantity = 0.0;
-        for (var i = 0; i < length; i++)
-        {
-            var level = levels[i];
-            if (level.Quantity.IsEquals(0.0))
-                return;
-            totalVolume += level.Quantity * level.Quantity;
-            totalQuantity += level.Quantity;
-            var priceRation = totalVolume / totalQuantity;
-            // round to step upper
-            var currentLevelGroup = 3 - i % 3 + i;
-            var quantityIndex = levelGroups.IndexOf(currentLevelGroup);
-            quantities[quantityIndex] = totalQuantity;
-
-            var currentVolumeGroup = (int)double.Round(totalVolume - totalVolume % 1000 + 1000, 0);
-            var volumeIndex = volumeGroups.IndexOf(currentVolumeGroup);
-            if (volumeIndex >= 0)
-            {
-                volumeWeightedAvgPrices[volumeIndex] = priceRation;
-            }
-        }
-    }
+    // private unsafe void CalculateOrderBookWeights(OrderBookLevels20 levels, double* quantities, double* volumeWeightedAvgPrices, int length)
+    // {
+    //     // LEVELS_STEPS step = 3; count = 3;
+    //     // VOLUME_STEPS step = 1000; count = 8;
+    //     ReadOnlySpan<int> levelGroups = [3, 6, 9]; // To Options
+    //     ReadOnlySpan<int> volumeGroups = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000]; // To Options
+    //     var totalVolume = 0.0;
+    //     var totalQuantity = 0.0;
+    //     for (var i = 0; i < length; i++)
+    //     {
+    //         var level = levels[i];
+    //         if (level.Quantity.IsEquals(0.0))
+    //             return;
+    //         totalVolume += level.Quantity * level.Quantity;
+    //         totalQuantity += level.Quantity;
+    //         var priceRation = totalVolume / totalQuantity;
+    //         // round to step upper
+    //         var currentLevelGroup = 3 - i % 3 + i;
+    //         var quantityIndex = levelGroups.IndexOf(currentLevelGroup);
+    //         quantities[quantityIndex] = totalQuantity;
+    //
+    //         var currentVolumeGroup = (int)double.Round(totalVolume - totalVolume % 1000 + 1000, 0);
+    //         var volumeIndex = volumeGroups.IndexOf(currentVolumeGroup);
+    //         if (volumeIndex >= 0)
+    //         {
+    //             volumeWeightedAvgPrices[volumeIndex] = priceRation;
+    //         }
+    //     }
+    // }
 }
