@@ -1,18 +1,24 @@
 ﻿using System.Diagnostics;
+using System.Drawing;
 using System.Globalization;
 using Banana.Backtest.Common.Extensions;
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.MarketData;
+using Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
 using CsvHelper;
 using CsvHelper.Configuration;
 using MathNet.Numerics.Statistics;
 using Microsoft.ML;
-using Microsoft.ML.Trainers;
 using ScottPlot;
 using Serilog;
 
 namespace Banana.Backtest.Emulator.ExchangeEmulator;
 
+// Vector(1 - N) Label = Lim(k/N)
+// Vector(1) Label = 0.7
+// Vector(2) Label = 0.8
+// Vector(3) Label = 0.9
+// Vector(4) Label = 1.0
 public class StrategyWrapper : IStrategy
 {
     private const int DATA_DEPTH = 128;
@@ -28,6 +34,7 @@ public class StrategyWrapper : IStrategy
     private readonly List<OrderBookSnapshot> _allOrderBooks = new();
     private readonly List<MarketDataItem<TradeUpdate>> _allTrades = new();
     private readonly List<FeaturesClass> _features = new();
+    private readonly FeatureBuilder _featureBuilder;
     private OrderBookSnapshot _orderBook;
     private OrderBookDataClass _orderBookDataClass = new(25);
 
@@ -48,10 +55,12 @@ public class StrategyWrapper : IStrategy
         _tradeDateOpenTimestamp = tradeDateOpenDateTime.ToUnixTimeMilliseconds();
         _tradeDateCloseTimestamp = tradeDateCloseDateTime.ToUnixTimeMilliseconds();
         _simulationStartedTimestamp = Stopwatch.GetTimestamp();
+        _featureBuilder = new FeatureBuilder(logger);
     }
 
     public void OrderBookUpdated(MarketDataItem<OrderBookSnapshot> orderBookSnapshot)
     {
+        _featureBuilder.OrderBookUpdated(orderBookSnapshot);
         var features = _orderBookDataClass.Generate(orderBookSnapshot.Item);
         features.FeaturesTimestamp = orderBookSnapshot.DateTime;
         _features.AddRange(features);
@@ -59,7 +68,7 @@ public class StrategyWrapper : IStrategy
 
     public unsafe void AnonymousTradeReceived(MarketDataItem<TradeUpdate> trade)
     {
-        // _logger.Information("Anonymous trade received");
+        _featureBuilder.AnonymousTradeReceived(trade);
         _allTrades.Add(trade);
     }
 
@@ -103,78 +112,23 @@ public class StrategyWrapper : IStrategy
             elapsedTime);
     }
 
-    private void BuildVerificationData()
-    {
-        var pricesMovingAvg = Statistics.MovingAverage(_allTrades.Select(x => x.Item.Price), 50).ToArray();
-        var tradesIdx = 0;
-        foreach (var feature in _features)
-        {
-            var featureTimestamp = feature.FeaturesTimestamp;
-            for (; tradesIdx < _allTrades.Count; tradesIdx++)
-            {
-                var tradeTimestamp = _allTrades[tradesIdx].DateTime;
-                if (tradeTimestamp < featureTimestamp)
-                    continue;
-                if ((tradeTimestamp - featureTimestamp).TotalSeconds < 5)
-                    continue;
-                var maPrice = pricesMovingAvg[tradesIdx];
-                feature.Next5SecPrice = maPrice;
-                feature.Rate5Sec = maPrice / feature.MidPrice - 1;
-                break;
-            }
-        }
-
-        var preCalculatedFeatures = _features.Select(MlDataInputClass.Create).ToList();
-        using (var fileWriter = new StreamWriter("D:/models/test_data.csv"))
-        {
-            using (var csv = new CsvWriter(fileWriter, new CsvConfiguration(CultureInfo.InvariantCulture)
-                   {
-                       HasHeaderRecord = true
-                   }))
-            {
-                csv.WriteRecords(preCalculatedFeatures);
-            }
-        }
-        _logger.Information("Verification data saved");
-    }
-
     private void TrainModel()
     {
+        _featureBuilder.FlushRemaining();
+        _featureBuilder.LabelFeatures(0.005);
+        _featureBuilder.RemoveEmptyFeatures();
+        _featureBuilder.SaveFeaturesToPostgreSql(Environment.GetEnvironmentVariable("PG_CONNECTION_STRING"));
+        _logger.Information("Features were built and saved to DB for {Hash}", _emulator.Hash);
+        return;
+        var labeledCount = _featureBuilder.Features.Count(x => x.Label > 0);
+        if (_allTrades.Count == 0)
+            return;
         var pricesMovingAvg = Statistics.MovingAverage(_allTrades.Select(x => x.Item.Price), 50).ToArray();
         var trendChangedIndexes = FindTrendReversalIndices(pricesMovingAvg, 0.001);
-        var trendPoints = trendChangedIndexes.Select(x => _allTrades[x].Timestamp.AsDateTime().ToOADate()).ToArray();
-        var trendPrices = trendChangedIndexes.Select(x => pricesMovingAvg[x]).ToArray();
-
-        var plot = new ScottPlot.Plot();
-        var times = _allTrades.Select(x => x.Timestamp.AsDateTime().ToOADate()).ToArray();
-        var pricesScatter = plot.AddScatter(times, pricesMovingAvg, label: "Prices");
-        pricesScatter.LineWidth = 2;
-        var pointsScatter = plot.AddScatter(trendPoints.ToArray(), trendPrices.ToArray(), label: "Points");
-        pointsScatter.MarkerSize = 10;
-        pointsScatter.MarkerShape = MarkerShape.filledCircle;
-        plot.XAxis.DateTimeFormat(true);
-        var filename = $"D:\\models\\chart_001.jpg";
-        plot.SaveFig(filename, 5120, 1440);
-
-        var tradesIdx = 0;
-        foreach (var feature in _features)
-        {
-            var featureTimestamp = feature.FeaturesTimestamp;
-            for (; tradesIdx < _allTrades.Count; tradesIdx++)
-            {
-                var tradeTimestamp = _allTrades[tradesIdx].DateTime;
-                if (tradeTimestamp < featureTimestamp)
-                    continue;
-                if ((tradeTimestamp - featureTimestamp).TotalSeconds < 5)
-                    continue;
-                var maPrice = pricesMovingAvg[tradesIdx];
-                feature.Next5SecPrice = maPrice;
-                feature.Rate5Sec = maPrice / feature.MidPrice - 1;
-                break;
-            }
-        }
-
+        LabelFeatures(trendChangedIndexes);
+        SaveChart(trendChangedIndexes, pricesMovingAvg);
         _logger.Information("Preparing data for model");
+        return;
         var mlContext = new MLContext(seed: 0);
         var model = Train(mlContext, _features.Select(MlDataInputClass.Create));
         EvaluateModel(mlContext, model);
@@ -186,7 +140,7 @@ public class StrategyWrapper : IStrategy
         _logger.Information("Model trained");
     }
 
-    public static List<int> FindTrendReversalIndices(double[] prices, double thresholdPercent)
+    private static List<int> FindTrendReversalIndices(double[] prices, double thresholdPercent)
     {
         List<int> reversalIndices = new List<int>();
 
@@ -269,6 +223,94 @@ public class StrategyWrapper : IStrategy
         }
 
         return reversalIndices;
+    }
+
+    private void LabelFeatures(List<int> trendChangedIndexes)
+    {
+        FeaturesClass nextFeature = default;
+        using var enumerator = _features.GetEnumerator();
+        if (enumerator.MoveNext())
+            nextFeature = enumerator.Current;
+        else
+        {
+            _logger.Warning("No features are stored for {Hash}", _emulator.Hash);
+            return;
+        }
+        foreach (var index in trendChangedIndexes)
+        {
+            var trade = _allTrades[index];
+            var pointTimestamp = trade.Timestamp.AsDateTime();
+            var features = new List<FeaturesClass>();
+            features.Add(nextFeature);
+            while (nextFeature.FeaturesTimestamp <= pointTimestamp && enumerator.MoveNext())
+            {
+                features.Add(nextFeature);
+                nextFeature = enumerator.Current;
+            }
+
+            for (var i = 0; i < features.Count; i++)
+            {
+                features[i].Label = (float)(1.0 / features.Count * i);
+            }
+        }
+    }
+
+    private void SaveChart(List<int> trendChangedIndexes, double[] pricesMovingAvg)
+    {
+        var multiPlot = new MultiPlot(5120, 1440, 2);
+
+// Верхний график (индекс 0)
+        var topPlot = multiPlot.GetSubplot(0, 0);
+
+// Нижний график (индекс 1)
+        var bottomPlot = multiPlot.GetSubplot(1, 0);
+
+// --- Верхний график: Prices и Points ---
+        var trendPoints = trendChangedIndexes
+            .Select(x => _allTrades[x].Timestamp.AsDateTime().ToOADate())
+            .ToArray();
+        var trendPrices = trendChangedIndexes
+            .Select(x => pricesMovingAvg[x])
+            .ToArray();
+        var times = _allTrades
+            .Select(x => x.Timestamp.AsDateTime().ToOADate())
+            .ToArray();
+
+        var pricesScatter = topPlot.AddScatter(times, pricesMovingAvg, label: "Prices");
+        pricesScatter.LineWidth = 2;
+
+        var pointsScatter = topPlot.AddScatter(trendPoints, trendPrices, label: "Points");
+        pointsScatter.MarkerSize = 10;
+        pointsScatter.MarkerShape = MarkerShape.filledCircle;
+
+        topPlot.XAxis.DateTimeFormat(true);
+        topPlot.Title("Prices & Trend Points");
+
+// --- Нижний график: Features ---
+        var featuresTimes = _features
+            .Select(x => x.FeaturesTimestamp.ToOADate())
+            .ToArray();
+        var featuresLabels = _features
+            .Select(x => (double)x.Label)
+            .ToArray();
+
+        var featuresScatter = bottomPlot.AddScatter(featuresTimes, featuresLabels, label: "Features");
+        featuresScatter.LineWidth = 2;
+        featuresScatter.Color = Color.Coral;
+
+        bottomPlot.XAxis.DateTimeFormat(true);
+        bottomPlot.YAxis.Label("Features Axis");
+        bottomPlot.Title("Features");
+
+// Чтобы оси X совпадали, можно принудительно задать одинаковые пределы
+// (если данные не меняются динамически, можно вычислить общие границы)
+        double commonXMin = times.Min();
+        double commonXMax = times.Max();
+        topPlot.SetAxisLimits(xMin: commonXMin, xMax: commonXMax);
+        bottomPlot.SetAxisLimits(xMin: commonXMin, xMax: commonXMax);
+
+        var filename = $"D:\\models\\chart_{_emulator.Hash.Symbol}_{_emulator.Hash.Date:dd.MM.yyyy}.jpg";
+        multiPlot.SaveFig(filename);
     }
 
     private ITransformer Train(MLContext mlContext, IEnumerable<MlDataInputClass> data)

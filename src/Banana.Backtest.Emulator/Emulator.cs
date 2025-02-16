@@ -40,6 +40,8 @@ public unsafe class Emulator : IDisposable
 
     public void Process()
     {
+        if (_levelUpdatesCache.IsEmpty)
+            return;
         foreach (var levelUpdate in _levelUpdatesCache.ContinueReadUntil())
         {
             Interlocked.CompareExchange(ref _currentTimestamp, levelUpdate.Timestamp, 0L);

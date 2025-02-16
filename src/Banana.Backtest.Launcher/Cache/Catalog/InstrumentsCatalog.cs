@@ -29,6 +29,19 @@ public class InstrumentsCatalog(IDatabase database, IOptions<RedisOptions> optio
         }
     }
 
+    public async Task<Symbol> GetSymbolForAsset(DateOnly dateOnly, Asset asset)
+    {
+        var key = _instrumentsKeys.GetOrAdd(asset, FuturesDataHashKey);
+        var futuresResponse = await database.HashGetAllAsync(key);
+        var symbol = futuresResponse
+            .Select(x => ByteArrayToFuturesInstrument(x.Value))
+            .Where(x => x.ExpirationDate > dateOnly)
+            .OrderBy(x => x.ExpirationDate)
+            .Select(x => x.Symbol)
+            .FirstOrDefault();
+        return symbol;
+    }
+
     public async Task SetInstruments(IEnumerable<FuturesInstrument> instruments)
     {
         var instrumentsByBasicAsset = instruments.GroupBy(x => x.BasicAsset);

@@ -29,7 +29,7 @@ public class MlDataInputClass
             Ask4VolumeMA = (float)features.Ask4VolumeMA,
 
             PeriodMs = (float)features.PeriodMs,
-            Rate5Sec = (float)features.Rate5Sec,
+            Label = (float)features.Label,
         };
     }
 
@@ -73,5 +73,5 @@ public class MlDataInputClass
     public float PeriodMs { get; set; }
 
     [LoadColumn(17)]
-    public float Rate5Sec { get; set; }
+    public float Label { get; set; }
 }

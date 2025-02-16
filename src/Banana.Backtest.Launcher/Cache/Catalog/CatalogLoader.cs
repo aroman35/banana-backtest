@@ -50,6 +50,7 @@ public class CatalogLoader(InvestApiClient investApiClient, InstrumentsCatalog i
                     InitialMarginOnSell = x.InitialMarginOnSell.ToDecimal()
                 });
             await instrumentsCatalog.SetInstruments(instruments);
+            _logger.Information("Catalog was updated");
         }
         catch (Exception exception)
         {

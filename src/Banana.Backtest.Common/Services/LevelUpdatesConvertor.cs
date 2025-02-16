@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Buffers;
+using System.Diagnostics;
 using System.IO.Compression;
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.MarketData;
@@ -8,6 +9,7 @@ namespace Banana.Backtest.Common.Services;
 
 public class LevelUpdatesConvertor : IDisposable
 {
+    private static readonly ArrayPool<MarketDataItem<OrderUpdate>> BufferPool = ArrayPool<MarketDataItem<OrderUpdate>>.Create(16834, 16);
     private readonly IMarketDataCacheReader<OrderUpdate> _orderUpdatesReader;
     private readonly IMarketDataCacheWriter<LevelUpdate>? _levelUpdatesWriter;
     private readonly ILogger _logger;
@@ -30,32 +32,52 @@ public class LevelUpdatesConvertor : IDisposable
         _logger = logger.ForContext<LevelUpdatesConvertor>();
     }
 
-    public void Start()
+    public unsafe void Start()
     {
         if (_orderUpdatesReader.IsEmpty)
             return;
         var startedTimestamp = Stopwatch.GetTimestamp();
-        Span<MarketDataItem<OrderUpdate>> currentBatchOrders = stackalloc MarketDataItem<OrderUpdate>[2048];
         var currentBatchIterator = 0;
+        var currentOrders = BufferPool.Rent(128);
 
         foreach (var orderUpdate in _orderUpdatesReader.ContinueReadUntil())
         {
             var isBookUpdated = _currentTimestamp != orderUpdate.Timestamp;
             if (isBookUpdated)
             {
-                HandleOrdersBatch(currentBatchOrders, currentBatchIterator);
+                HandleOrdersBatch(currentOrders, currentBatchIterator);
 
                 _currentTimestamp = orderUpdate.Timestamp;
                 currentBatchIterator = 0;
             }
-            currentBatchOrders[currentBatchIterator++] = orderUpdate;
+            if (currentBatchIterator++ >= currentOrders.Length)
+                currentOrders = IncreaseBufferSize();
+            currentOrders[currentBatchIterator++] = orderUpdate;
         }
-        HandleOrdersBatch(currentBatchOrders, currentBatchIterator);
+        HandleOrdersBatch(currentOrders, currentBatchIterator);
+        BufferPool.Return(currentOrders, true);
         var jobElapsedTime = Stopwatch.GetElapsedTime(startedTimestamp);
         _logger.Information("Level updates for {Ticker}-{Date} has been built in {@JobElapsedTime} ms", _hash.Symbol.Ticker, _hash.Date, jobElapsedTime);
+        return;
+
+        MarketDataItem<OrderUpdate>[] IncreaseBufferSize()
+        {
+            var increasedArray = BufferPool.Rent(currentOrders.Length * 2);
+            fixed (MarketDataItem<OrderUpdate>* sourceArrayPtr = currentOrders)
+            {
+                fixed (MarketDataItem<OrderUpdate>* increasedArrayPtr = increasedArray)
+                {
+                    var length = sizeof(MarketDataItem<OrderUpdate>) * currentBatchIterator;
+                    Buffer.MemoryCopy(sourceArrayPtr, increasedArrayPtr, length, length);
+                }
+            }
+            currentOrders.CopyTo(increasedArray, 0);
+            BufferPool.Return(currentOrders, true);
+            return increasedArray;
+        }
     }
 
-    private void HandleOrdersBatch(Span<MarketDataItem<OrderUpdate>> currentBatchOrders, int batchSize)
+    private void HandleOrdersBatch(MarketDataItem<OrderUpdate>[] currentBatchOrders, int batchSize)
     {
         for (var i = 0; i < batchSize; i++)
         {

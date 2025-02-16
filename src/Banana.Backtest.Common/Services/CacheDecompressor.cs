@@ -17,6 +17,11 @@ public class CacheDecompressor<TMarketDataType>(MarketDataHash hash, string sour
 
     public void Start()
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcesDictionary, nameof(sourcesDictionary));
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationDictionary, nameof(destinationDictionary));
+        if (sourcesDictionary == destinationDictionary)
+            throw new InvalidOperationException("Source and destination dictionaries are the same");
+
         foreach (var item in _compressedSource.ContinueReadUntil())
         {
             _destination.Write(item);

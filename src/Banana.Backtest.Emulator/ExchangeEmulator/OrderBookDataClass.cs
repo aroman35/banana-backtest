@@ -27,27 +27,25 @@ public class OrderBookDataClass(int windowSize)
             UpdateEma(_askVolumesEmaCollection[i], asks[i].Price * asks[i].Quantity, windowSize);
         }
 
-        features.Bid1PriceMA = _bidPricesEmaCollection[0].Last();
-        features.Bid2PriceMA = _bidPricesEmaCollection[1].Last();
-        features.Bid3PriceMA = _bidPricesEmaCollection[2].Last();
-        features.Bid4PriceMA = _bidPricesEmaCollection[3].Last();
+        features.Bid1PriceMA = (float)_bidPricesEmaCollection[0].Last();
+        features.Bid2PriceMA = (float)_bidPricesEmaCollection[1].Last();
+        features.Bid3PriceMA = (float)_bidPricesEmaCollection[2].Last();
+        features.Bid4PriceMA = (float)_bidPricesEmaCollection[3].Last();
 
-        features.Bid1VolumeMA = _bidVolumesEmaCollection[0].Last();
-        features.Bid2VolumeMA = _bidVolumesEmaCollection[1].Last();
-        features.Bid3VolumeMA = _bidVolumesEmaCollection[2].Last();
-        features.Bid4VolumeMA = _bidVolumesEmaCollection[3].Last();
+        features.Bid1VolumeMA = (float)_bidVolumesEmaCollection[0].Last();
+        features.Bid2VolumeMA = (float)_bidVolumesEmaCollection[1].Last();
+        features.Bid3VolumeMA = (float)_bidVolumesEmaCollection[2].Last();
+        features.Bid4VolumeMA = (float)_bidVolumesEmaCollection[3].Last();
 
-        features.Ask1PriceMA = _askPricesEmaCollection[0].Last();
-        features.Ask2PriceMA = _askPricesEmaCollection[1].Last();
-        features.Ask3PriceMA = _askPricesEmaCollection[2].Last();
-        features.Ask4PriceMA = _askPricesEmaCollection[3].Last();
+        features.Ask1PriceMA = (float)_askPricesEmaCollection[0].Last();
+        features.Ask2PriceMA = (float)_askPricesEmaCollection[1].Last();
+        features.Ask3PriceMA = (float)_askPricesEmaCollection[2].Last();
+        features.Ask4PriceMA = (float)_askPricesEmaCollection[3].Last();
 
-        features.Ask1VolumeMA = _askVolumesEmaCollection[0].Last();
-        features.Ask2VolumeMA = _askVolumesEmaCollection[1].Last();
-        features.Ask3VolumeMA = _askVolumesEmaCollection[2].Last();
-        features.Ask4VolumeMA = _askVolumesEmaCollection[3].Last();
-
-        features.MidPrice = (bids[0].Price + asks[0].Price) / 2;
+        features.Ask1VolumeMA = (float)_askVolumesEmaCollection[0].Last();
+        features.Ask2VolumeMA = (float)_askVolumesEmaCollection[1].Last();
+        features.Ask3VolumeMA = (float)_askVolumesEmaCollection[2].Last();
+        features.Ask4VolumeMA = (float)_askVolumesEmaCollection[3].Last();
 
         return features;
     }

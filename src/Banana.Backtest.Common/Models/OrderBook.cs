@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Banana.Backtest.Common.Extensions;
 using Banana.Backtest.Common.Models.MarketData;
 
@@ -118,13 +119,18 @@ public class OrderBook
 
 public unsafe struct OrderBookSnapshot
 {
-    public const int Depth = 64;
+    public const int Depth = 20;
 
     public fixed double BidPrices[Depth];
     public fixed double BidQuantities[Depth];
     public fixed double AskPrices[Depth];
     public fixed double AskQuantities[Depth];
 
+    public OrderBook.OrderBookLevel Bid(int level) => new(BidPrices[level], BidQuantities[level]);
+    public OrderBook.OrderBookLevel Ask(int level) => new(AskPrices[level], AskQuantities[level]);
+
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void FillBids(Span<OrderBook.OrderBookLevel> bids, int length)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(length, Depth);
@@ -140,6 +146,7 @@ public unsafe struct OrderBookSnapshot
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void FillAsks(Span<OrderBook.OrderBookLevel> asks, int length)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(length, Depth);
@@ -155,6 +162,7 @@ public unsafe struct OrderBookSnapshot
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IEnumerable<OrderBook.OrderBookLevel> Bids()
     {
         for (var i = 0; i < Depth; i++)
@@ -170,6 +178,7 @@ public unsafe struct OrderBookSnapshot
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IEnumerable<OrderBook.OrderBookLevel> Asks()
     {
         for (var i = 0; i < Depth; i++)
