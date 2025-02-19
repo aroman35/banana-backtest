@@ -23,8 +23,8 @@ builder.Services.AddInvestApiClient((provider, options) =>
     options.AppName = "Banana";
 });
 builder.Services.AddSingleton<InstrumentsCatalog>();
-// builder.Services.AddHostedService<Test>();
-builder.Services.AddHostedService<ModelTrainerService>();
+builder.Services.AddHostedService<DataPreparation>();
+// builder.Services.AddHostedService<ModelTrainerService>();
 // builder.Services.AddHostedService<CatalogLoader>();
 builder.Services.AddSerilog((_, loggerConfiguration) => loggerConfiguration.ReadFrom.Configuration(builder.Configuration));
 

@@ -72,14 +72,6 @@ public class Temp(ITestOutputHelper testOutputHelper)
             }
         }
     }
-
-    [Fact]
-    public void Test3()
-    {
-        var a = MathNet.Numerics.LinearAlgebra.CreateVector.DenseOfArray([2.0, 4, 8]);
-        var b = MathNet.Numerics.LinearAlgebra.CreateVector.DenseOfArray([3.0, 9, 27]);
-        var normA = MathNet.Numerics.LinearAlgebra.Double.Vector.
-    }
 }
 
 public class FlatLevelUpdate

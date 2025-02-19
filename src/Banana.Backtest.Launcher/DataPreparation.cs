@@ -6,13 +6,13 @@ using Banana.Backtest.Launcher.Cache.Catalog;
 
 namespace Banana.Backtest.Launcher;
 
-public class Test(InstrumentsCatalog instrumentsCatalog, ILogger logger) : IHostedService
+public class DataPreparation(InstrumentsCatalog instrumentsCatalog, ILogger logger) : IHostedService
 {
     private const string CacheDirectory = "";
     private const string MarketDataDirectory = "D:/market-data-storage";
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        var tradeDate = new DateOnly(2024, 09, 01);
+        var tradeDate = new DateOnly(2024, 04, 01);
         var endDate = new DateOnly(2024, 09, 30);
         for (; tradeDate <= endDate; tradeDate = tradeDate.AddDays(1))
         {

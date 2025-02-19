@@ -5,348 +5,216 @@ using Serilog;
 
 namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
 
-public class FeatureBuilder(ILogger logger) : IEmulatorGateway
-{
-    private readonly ILogger _logger = logger.ForContext<FeatureBuilder>();
-    // Интервал агрегации (здесь 1 минута)
-    private readonly TimeSpan _windowDuration = TimeSpan.FromSeconds(60);
-
-    // Список сформированных фичей
-    private readonly List<FeatureRecord> _features = new List<FeatureRecord>();
-    public IReadOnlyList<FeatureRecord> Features => _features;
-
-    // Начало текущего окна агрегации
-    private DateTime _currentWindowStart = DateTime.MinValue;
-
-    // Храним последний полученный стакан для вычисления признаков
-    private OrderBookSnapshot? _latestOrderBook = null;
-
-    // Накопление данных по сделкам в текущем окне
-    private double _totalTradeVolume = 0;
-    private int _tradeCount = 0;
-    private double _buyTradeVolume = 0;
-    private double _sellTradeVolume = 0;
-    private double? _firstTradePrice = null;
-    private double _lastTradePrice = 0;
-
-    // Вызывается при обновлении стакана
-    public void OrderBookUpdated(MarketDataItem<OrderBookSnapshot> orderBookSnapshot)
+    /// <summary>
+    /// Собирает целевые фичи (в формате <see cref="FeatureRecordMapped"/>) на основе обновлений стакана и потока сделок.
+    /// Реализует интерфейс <see cref="IEmulatorGateway"/>.
+    /// Фичи накапливаются в приватном поле <c>_features</c>, которое сразу содержит данные в требуемом формате.
+    /// </summary>
+    public class FeatureBuilder : IEmulatorGateway
     {
-        var dt = orderBookSnapshot.DateTime;
-        InitializeWindowIfNeeded(dt);
+        private readonly ILogger _logger;
+        private readonly TimeSpan _windowDuration = TimeSpan.FromSeconds(15);
+        private readonly List<FeatureRecordMapped> _features = new List<FeatureRecordMapped>();
+        private readonly FeatureRepository _featureRepository;
+        public IReadOnlyList<FeatureRecordMapped> Features => _features;
+        private DateTime _currentWindowStart = DateTime.MinValue;
+        private OrderBookSnapshot? _latestOrderBook = null;
 
-        // Если событие выходит за пределы текущего окна, сбрасываем накопленные данные
-        if (dt >= _currentWindowStart + _windowDuration)
+        // Накопленные данные по сделкам в текущем окне.
+        private double _totalTradeVolume = 0;
+        private int _tradeCount = 0;
+        private double _buyTradeVolume = 0;
+        private double _sellTradeVolume = 0;
+        private double? _firstTradePrice = null;
+        private double _lastTradePrice = 0;
+
+        /// <summary>
+        /// Инициализирует новый экземпляр класса <see cref="FeatureBuilder"/>.
+        /// </summary>
+        /// <param name="logger">Экземпляр <see cref="ILogger"/> для логирования.</param>
+        public FeatureBuilder(FeatureRepository featureRepository, ILogger logger)
         {
-            FlushWindow();
-            // Начинаем новое окно – округляем время до начала текущей минуты
-            _currentWindowStart = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
+            _logger = logger.ForContext<FeatureBuilder>();
+            _featureRepository = featureRepository;
+            _logger.Information("FeatureBuilder initialized with window duration {WindowDuration}.", _windowDuration);
         }
 
-        // Сохраняем последний стакан (на данный момент)
-        _latestOrderBook = orderBookSnapshot.Item;
-    }
-
-    // Вызывается при поступлении информации о сделке
-    public void AnonymousTradeReceived(MarketDataItem<TradeUpdate> trade)
-    {
-        var dt = trade.DateTime;
-        InitializeWindowIfNeeded(dt);
-
-        if (dt >= _currentWindowStart + _windowDuration)
+        /// <summary>
+        /// Обрабатывает обновление стакана.
+        /// </summary>
+        /// <param name="orderBookSnapshot">Обновление стакана.</param>
+        public void OrderBookUpdated(MarketDataItem<OrderBookSnapshot> orderBookSnapshot)
         {
-            FlushWindow();
-            _currentWindowStart = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
-        }
+            DateTime dt = orderBookSnapshot.DateTime;
+            InitializeWindowIfNeeded(dt);
 
-        // Агрегируем данные по сделкам
-        var tradeUpdate = trade.Item;
-        var tradeVolume = tradeUpdate.Volume;
-        _totalTradeVolume += tradeVolume;
-        _tradeCount++;
-        if (tradeUpdate.IsBuyer)
-            _buyTradeVolume += tradeVolume;
-        else
-            _sellTradeVolume += tradeVolume;
-
-        if (_firstTradePrice == null)
-            _firstTradePrice = tradeUpdate.Price;
-        _lastTradePrice = tradeUpdate.Price;
-    }
-
-    // Заглушка для пользовательского исполнения
-    public void UserExecutionReceived(UserExecution userExecution)
-    {
-        throw new NotImplementedException();
-    }
-
-    // Инициализация окна агрегации, если оно ещё не задано
-    private void InitializeWindowIfNeeded(DateTime dt)
-    {
-        if (_currentWindowStart == DateTime.MinValue)
-        {
-            // Начало окна – округление до начала минуты
-            _currentWindowStart = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
-        }
-    }
-
-    // Функция сброса накопленных данных текущего окна и формирования FeatureRecord
-    private unsafe void FlushWindow()
-    {
-        // Если стакан не получен, пропускаем формирование фич для данного окна
-        if (_latestOrderBook == null)
-        {
-            ResetTradeAggregation();
-            return;
-        }
-
-        var record = new FeatureRecord
-        {
-            Timestamp = _currentWindowStart
-        };
-
-        // Извлекаем признаки из стакана: лучшие цены
-        var bestBid = _latestOrderBook.Value.Bid(0).Price;
-        var bestAsk = _latestOrderBook.Value.Ask(0).Price;
-        record.BestBid = bestBid;
-        record.BestAsk = bestAsk;
-        record.Spread = bestAsk - bestBid;
-
-        // Вычисляем новые признаки на основе лучших цен
-        record.MidPrice = (bestBid + bestAsk) / 2;
-        record.SpreadPct = record.MidPrice != 0 ? record.Spread / record.MidPrice : 0;
-
-        // Считаем суммарные объемы и VWAP для бидов и асков
-        double bidVolume = 0;
-        double askVolume = 0;
-        double vwapBidNumerator = 0;
-        double vwapAskNumerator = 0;
-        for (var i = 0; i < OrderBookSnapshot.Depth; i++)
-        {
-            var bid = _latestOrderBook.Value.Bid(i);
-            var ask = _latestOrderBook.Value.Ask(i);
-            var bidPrice = bid.Price;
-            var bidQuantity = bid.Quantity;
-            var askPrice = ask.Price;
-            var askQuantity = ask.Quantity;
-
-            bidVolume += bidQuantity;
-            askVolume += askQuantity;
-            vwapBidNumerator += bidPrice * bidQuantity;
-            vwapAskNumerator += askPrice * askQuantity;
-        }
-        // Имбаланс – нормированная разность объемов (проверяем, чтобы не было деления на 0)
-        double totalVolume = bidVolume + askVolume;
-        record.Imbalance = totalVolume != 0 ? (bidVolume - askVolume) / totalVolume : 0;
-        record.VWAPBid = bidVolume > 0 ? vwapBidNumerator / bidVolume : 0;
-        record.VWAPAsk = askVolume > 0 ? vwapAskNumerator / askVolume : 0;
-
-        // Записываем признаки по сделкам
-        record.TotalTradeVolume = _totalTradeVolume;
-        record.TradeCount = _tradeCount;
-        record.BuyTradeVolume = _buyTradeVolume;
-        record.SellTradeVolume = _sellTradeVolume;
-        record.TradePriceChange = _firstTradePrice.HasValue ? _lastTradePrice - _firstTradePrice.Value : 0;
-
-        // Новые признаки на основе сделок:
-        // Относительное изменение цены (если MidPrice != 0)
-        record.PriceChangePct = record.MidPrice != 0 ? record.TradePriceChange / record.MidPrice : 0;
-        // Интенсивность сделок: число сделок в секунду (окно задается _windowDuration)
-        record.TradeIntensity = _windowDuration.TotalSeconds > 0 ? _tradeCount / _windowDuration.TotalSeconds : 0;
-
-        // Добавляем запись в список фич
-        _features.Add(record);
-
-        // Сбрасываем агрегацию по сделкам для нового окна
-        ResetTradeAggregation();
-    }
-
-    // Сброс накопленных данных по сделкам
-    private void ResetTradeAggregation()
-    {
-        _totalTradeVolume = 0;
-        _tradeCount = 0;
-        _buyTradeVolume = 0;
-        _sellTradeVolume = 0;
-        _firstTradePrice = null;
-        _lastTradePrice = 0;
-    }
-
-    // Метод для сброса оставшихся накопленных данных в конце обработки дня
-    public void FlushRemaining()
-    {
-        FlushWindow();
-    }
-
-    // Функция поиска точек смены тренда (ваш алгоритм)
-    private static List<int> FindTrendReversalIndices(double[] prices, double thresholdPercent)
-    {
-        List<int> reversalIndices = new List<int>();
-
-        if (prices == null || prices.Length < 2)
-            return reversalIndices;
-
-        int lastExtremeIndex = 0;
-        double lastExtremePrice = prices[0];
-        reversalIndices.Add(lastExtremeIndex);
-
-        int currentTrend = 0;
-
-        for (int i = 1; i < prices.Length; i++)
-        {
-            double price = prices[i];
-
-            if (currentTrend == 0)
+            if (dt >= _currentWindowStart + _windowDuration)
             {
-                if (price >= lastExtremePrice * (1 + thresholdPercent))
-                {
-                    currentTrend = 1;
-                    lastExtremeIndex = i;
-                    lastExtremePrice = price;
-                    reversalIndices.Add(i);
-                }
-                else if (price <= lastExtremePrice * (1 - thresholdPercent))
-                {
-                    currentTrend = -1;
-                    lastExtremeIndex = i;
-                    lastExtremePrice = price;
-                    reversalIndices.Add(i);
-                }
+                FlushWindow();
+                // Новое окно: округление до начала текущей минуты.
+                _currentWindowStart = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
             }
-            else if (currentTrend == 1)
+
+            _latestOrderBook = orderBookSnapshot.Item;
+            _logger.Debug("OrderBook updated at {Timestamp}.", dt);
+        }
+
+        /// <summary>
+        /// Обрабатывает поступление информации о сделке.
+        /// </summary>
+        /// <param name="trade">Информация о сделке.</param>
+        public void AnonymousTradeReceived(MarketDataItem<TradeUpdate> trade)
+        {
+            DateTime dt = trade.DateTime;
+            InitializeWindowIfNeeded(dt);
+
+            if (dt >= _currentWindowStart + _windowDuration)
             {
-                if (price > lastExtremePrice)
-                {
-                    lastExtremeIndex = i;
-                    lastExtremePrice = price;
-                    reversalIndices[reversalIndices.Count - 1] = i;
-                }
-                else if (price <= lastExtremePrice * (1 - thresholdPercent))
-                {
-                    currentTrend = -1;
-                    lastExtremeIndex = i;
-                    lastExtremePrice = price;
-                    reversalIndices.Add(i);
-                }
+                FlushWindow();
+                _currentWindowStart = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
             }
-            else if (currentTrend == -1)
+
+            var tradeUpdate = trade.Item;
+            double tradeVolume = tradeUpdate.Volume;
+            _totalTradeVolume += tradeVolume;
+            _tradeCount++;
+            if (tradeUpdate.IsBuyer)
             {
-                if (price < lastExtremePrice)
-                {
-                    lastExtremeIndex = i;
-                    lastExtremePrice = price;
-                    reversalIndices[reversalIndices.Count - 1] = i;
-                }
-                else if (price >= lastExtremePrice * (1 + thresholdPercent))
-                {
-                    currentTrend = 1;
-                    lastExtremeIndex = i;
-                    lastExtremePrice = price;
-                    reversalIndices.Add(i);
-                }
+                _buyTradeVolume += tradeVolume;
+            }
+            else
+            {
+                _sellTradeVolume += tradeVolume;
+            }
+
+            if (_firstTradePrice == null)
+            {
+                _firstTradePrice = tradeUpdate.Price;
+            }
+            _lastTradePrice = tradeUpdate.Price;
+            _logger.Debug("Trade received at {Timestamp}: {TradeInfo}.", dt, tradeUpdate.ToString());
+        }
+
+        /// <summary>
+        /// Обрабатывает информацию о пользовательском исполнении.
+        /// </summary>
+        /// <param name="userExecution">Информация о пользовательском исполнении.</param>
+        public void UserExecutionReceived(UserExecution userExecution)
+        {
+            throw new NotImplementedException("User execution processing is not implemented.");
+        }
+
+        /// <summary>
+        /// Инициализирует окно агрегации, если оно ещё не задано.
+        /// </summary>
+        /// <param name="dt">Время события.</param>
+        private void InitializeWindowIfNeeded(DateTime dt)
+        {
+            if (_currentWindowStart == DateTime.MinValue)
+            {
+                _currentWindowStart = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
+                _logger.Debug("Window initialized at {WindowStart}.", _currentWindowStart);
             }
         }
 
-        return reversalIndices;
-    }
-
-    // После завершения сбора фич (например, в конце дня)
-    public void LabelFeatures(double thresholdPercent)
-    {
-        // Извлекаем массив цен. Здесь можно взять среднюю цену стакана:
-        double[] prices = _features
-            .Select(r => (r.BestBid + r.BestAsk) / 2)
-            .ToArray();
-
-        // Находим индексы точек смены тренда
-        List<int> reversalIndices = FindTrendReversalIndices(prices, thresholdPercent);
-
-        // Изначально считаем, что в окне нет разворота
-        foreach (var record in _features)
+        /// <summary>
+        /// Сбрасывает накопленные данные по сделкам и формирует целевую фичу в формате <see cref="FeatureRecordMapped"/> для текущего окна.
+        /// </summary>
+        private unsafe void FlushWindow()
         {
+            if (_latestOrderBook == null)
+            {
+                ResetTradeAggregation();
+                _logger.Warning("FlushWindow skipped: no order book available.");
+                return;
+            }
+
+            // Создаем целевую фичу напрямую.
+            var record = new FeatureRecordMapped
+            {
+                Timestamp = _currentWindowStart,
+                BestBid = (float)_latestOrderBook.Value.Bid(0).Price,
+                BestAsk = (float)_latestOrderBook.Value.Ask(0).Price,
+                Spread = (float)(_latestOrderBook.Value.Ask(0).Price - _latestOrderBook.Value.Bid(0).Price)
+            };
+
+            // Вычисляем MidPrice и SpreadPct.
+            record.MidPrice = (record.BestBid + record.BestAsk) / 2;
+            record.SpreadPct = record.MidPrice != 0 ? record.Spread / record.MidPrice : 0;
+
+            // Вычисляем VWAP и объемы.
+            double bidVolume = 0;
+            double askVolume = 0;
+            double vwapBidNumerator = 0;
+            double vwapAskNumerator = 0;
+            for (int i = 0; i < OrderBookSnapshot.Depth; i++)
+            {
+                var bid = _latestOrderBook.Value.Bid(i);
+                var ask = _latestOrderBook.Value.Ask(i);
+                bidVolume += bid.Quantity;
+                askVolume += ask.Quantity;
+                vwapBidNumerator += bid.Price * bid.Quantity;
+                vwapAskNumerator += ask.Price * ask.Quantity;
+            }
+
+            double totalVolume = bidVolume + askVolume;
+            record.Imbalance = totalVolume != 0 ? (float)((bidVolume - askVolume) / totalVolume) : 0;
+            record.VWAPBid = bidVolume > 0 ? (float)(vwapBidNumerator / bidVolume) : 0;
+            record.VWAPAsk = askVolume > 0 ? (float)(vwapAskNumerator / askVolume) : 0;
+
+            // Записываем данные по сделкам.
+            record.TotalTradeVolume = (float)_totalTradeVolume;
+            record.TradeCount = (float)_tradeCount;
+            record.BuyTradeVolume = (float)_buyTradeVolume;
+            record.SellTradeVolume = (float)_sellTradeVolume;
+            record.TradePriceChange = _firstTradePrice.HasValue ? (float)(_lastTradePrice - _firstTradePrice.Value) : 0;
+
+            // Вычисляем производные признаки.
+            record.PriceChangePct = record.MidPrice != 0 ? record.TradePriceChange / record.MidPrice : 0;
+            record.TradeIntensity = _windowDuration.TotalSeconds > 0 ? (float)_tradeCount / (float)_windowDuration.TotalSeconds : 0;
+
+            // Начальное значение метки устанавливаем в 0 (вероятность смены тренда будет рассчитана позже)
             record.Label = 0;
+
+            _features.Add(record);
+            _logger.Debug("Flushed window at {Timestamp}. Total features count: {Count}.", _currentWindowStart, _features.Count);
+
+            ResetTradeAggregation();
         }
 
-        // Для найденных индексов ставим метку разворота (Label = 1)
-        foreach (int idx in reversalIndices)
+        /// <summary>
+        /// Сбрасывает накопленные данные по сделкам.
+        /// </summary>
+        private void ResetTradeAggregation()
         {
-            if (idx >= 0 && idx < _features.Count)
-            {
-                _features[idx].Label = 1;
-            }
+            _totalTradeVolume = 0;
+            _tradeCount = 0;
+            _buyTradeVolume = 0;
+            _sellTradeVolume = 0;
+            _firstTradePrice = null;
+            _lastTradePrice = 0;
         }
-        _logger.Information("Labeling features complete");
-    }
 
-    public void RemoveEmptyFeatures()
-    {
-        _features.RemoveAll(feature =>
-            feature.TotalTradeVolume == 0 ||
-            (feature.BestBid == 0 &&
-             feature.BestAsk == 0 &&
-             feature.Spread == 0 &&
-             (double.IsNaN(feature.Imbalance) || feature.Imbalance == 0) &&
-             feature.VWAPBid == 0 &&
-             feature.VWAPAsk == 0 &&
-             feature.TotalTradeVolume == 0 &&
-             feature.TradeCount == 0 &&
-             feature.BuyTradeVolume == 0 &&
-             feature.SellTradeVolume == 0 &&
-             feature.TradePriceChange == 0));
-    }
-
-    public void SaveFeaturesToPostgreSql(string connectionString)
-    {
-        using (var connection = new NpgsqlConnection(connectionString))
+        /// <summary>
+        /// Сбрасывает оставшиеся накопленные данные (например, в конце дня).
+        /// </summary>
+        public void FlushRemaining()
         {
-            connection.Open();
-            using (var transaction = connection.BeginTransaction())
-            {
-                foreach (var feature in _features)
-                {
-                    using (var command = new NpgsqlCommand(
-                        @"INSERT INTO features_ng_old (
-                            timestamp, bestbid, bestask, spread, imbalance,
-                            vwapbid, vwapask, totaltradevolume, tradecount, 
-                            buytradevolume, selltradevolume, tradepricechange,
-                            midprice, spreadpct, pricechangepct, tradeintensity, label
-                        ) VALUES (
-                            @timestamp, @bestbid, @bestask, @spread, @imbalance,
-                            @vwapbid, @vwapask, @totaltradevolume, @tradecount, 
-                            @buytradevolume, @selltradevolume, @tradepricechange,
-                            @midprice, @spreadpct, @pricechangepct, @tradeintensity, @label
-                        )",
-                        connection))
-                    {
-                        command.Parameters.AddWithValue("@timestamp", feature.Timestamp);
-                        command.Parameters.AddWithValue("@bestbid", feature.BestBid);
-                        command.Parameters.AddWithValue("@bestask", feature.BestAsk);
-                        command.Parameters.AddWithValue("@spread", feature.Spread);
+            FlushWindow();
+            _logger.Information("Remaining data flushed.");
+        }
 
-                        // Если Imbalance равен NaN, передаём DBNull
-                        if (double.IsNaN(feature.Imbalance))
-                            command.Parameters.AddWithValue("@imbalance", DBNull.Value);
-                        else
-                            command.Parameters.AddWithValue("@imbalance", feature.Imbalance);
-
-                        command.Parameters.AddWithValue("@vwapbid", feature.VWAPBid);
-                        command.Parameters.AddWithValue("@vwapask", feature.VWAPAsk);
-                        command.Parameters.AddWithValue("@totaltradevolume", feature.TotalTradeVolume);
-                        command.Parameters.AddWithValue("@tradecount", feature.TradeCount);
-                        command.Parameters.AddWithValue("@buytradevolume", feature.BuyTradeVolume);
-                        command.Parameters.AddWithValue("@selltradevolume", feature.SellTradeVolume);
-                        command.Parameters.AddWithValue("@tradepricechange", feature.TradePriceChange);
-                        command.Parameters.AddWithValue("@midprice", feature.MidPrice);
-                        command.Parameters.AddWithValue("@spreadpct", feature.SpreadPct);
-                        command.Parameters.AddWithValue("@pricechangepct", feature.PriceChangePct);
-                        command.Parameters.AddWithValue("@tradeintensity", feature.TradeIntensity);
-                        command.Parameters.AddWithValue("@label", feature.Label);
-
-                        command.ExecuteNonQuery();
-                    }
-                }
-                transaction.Commit();
-            }
+        /// <summary>
+        /// Сохраняет собранные целевые фичи (<see cref="FeatureRecordMapped"/>) в указанную таблицу PostgreSQL.
+        /// Сохраняются также параметры разметки и тикер инструмента.
+        /// </summary>
+        /// <param name="connectionString">Строка подключения к PostgreSQL.</param>
+        /// <param name="tableName">Имя таблицы для сохранения фич.</param>
+        /// <param name="ticker">Тикер инструмента.</param>
+         public void SaveFeaturesToPostgreSQL(string connectionString, string tableName, string ticker)
+        {
+            _logger.Information("Saving target features for ticker {Ticker} to table {Table}...", ticker, tableName);
+            _featureRepository.BulkInsertFeatures(_features);
+            _logger.Information("Target features saved successfully for ticker {Ticker}.", ticker);
         }
     }
-}

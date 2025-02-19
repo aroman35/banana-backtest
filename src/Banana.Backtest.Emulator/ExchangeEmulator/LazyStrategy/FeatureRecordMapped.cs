@@ -18,5 +18,5 @@ public class FeatureRecordMapped
     public float SpreadPct { get; set; }
     public float PriceChangePct { get; set; }
     public float TradeIntensity { get; set; }
-    public bool Label { get; set; }
+    public float Label { get; set; }
 }

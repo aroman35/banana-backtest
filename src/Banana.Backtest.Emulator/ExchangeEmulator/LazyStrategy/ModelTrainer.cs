@@ -1,223 +1,317 @@
 ﻿using Microsoft.ML;
 using Microsoft.ML.Data;
-using Microsoft.ML.Trainers.FastTree;
 using Npgsql;
 using Serilog;
 
 namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
 
-public class ModelTrainer
-{
-    private readonly ILogger _logger;
-    private readonly string _connectionString;
-    private readonly MLContext _mlContext;
-    private readonly double _thresholdPercent;
-    private readonly int _windowOffset;
-
-    public ModelTrainer(string connectionString, double thresholdPercent, int windowOffset, ILogger logger)
-    {
-        _connectionString = connectionString;
-        _thresholdPercent = thresholdPercent;
-        _windowOffset = windowOffset;
-        _mlContext = new MLContext(seed: 0);
-        _logger = logger.ForContext<ModelTrainer>();
-    }
-
     /// <summary>
-    /// Загружает данные фич из PostgreSQL и возвращает их в виде списка FeatureRecord.
+    /// ModelTrainer загружает целевые фичи (FeatureRecordMapped) из БД, обучает регрессионную модель
+    /// для предсказания вероятности смены тренда и сохраняет обновленные фичи в БД
     /// </summary>
-    public List<FeatureRecord> LoadFeaturesFromPostgreSQL(string tableName)
+    public class ModelTrainer
     {
-        var features = new List<FeatureRecord>();
+        private readonly ILogger _logger;
+        private readonly FeatureRepository _featureRepository;
+        private readonly string _connectionString;
+        private readonly MLContext _mlContext;
+        private readonly double _thresholdPercent;
+        private readonly int _windowsRange;
+        private readonly double _sigma;
+        private readonly string _featuresTable;
 
-        using (var connection = new NpgsqlConnection(_connectionString))
+        /// <summary>
+        /// Приватное поле для хранения целевых фич, загруженных из БД
+        /// </summary>
+        private List<FeatureRecordMapped> _features;
+
+        /// <summary>
+        /// Инициализирует новый экземпляр <see cref="ModelTrainer"/> и загружает фичи из БД
+        /// </summary>
+        /// <param name="connectionString">
+        /// Строка подключения к PostgreSQL
+        /// </param>
+        /// <param name="featuresTable">
+        /// Имя таблицы с целевыми фичами
+        /// </param>
+        /// <param name="thresholdPercent">
+        /// Порог для обнаружения разворота (например, 0.005 для 0.5% изменения)
+        /// </param>
+        /// <param name="sigma">
+        /// Параметр гауссовой функции для расчёта вероятности
+        /// </param>
+        /// <param name="windowsRange">
+        /// Количество окон до и после точки разворота для разметки
+        /// </param>
+        /// <param name="logger">
+        /// Экземпляр <see cref="ILogger"/> для логирования
+        /// </param>
+        public ModelTrainer(
+            string connectionString,
+            string featuresTable,
+            double thresholdPercent,
+            double sigma,
+            int windowsRange,
+            ILogger logger)
         {
-            connection.Open();
-            using (var command = new NpgsqlCommand(
-                       @$"SELECT 
-                    timestamp, bestbid, bestask, spread, imbalance, 
-                    vwapbid, vwapask, totaltradevolume, tradecount, 
-                    buytradevolume, selltradevolume, tradepricechange,
-                    midprice, spreadpct, pricechangepct, tradeintensity, label 
-                  FROM {tableName}",
-                       connection))
+            _connectionString = connectionString;
+            _featuresTable = featuresTable;
+            _thresholdPercent = thresholdPercent;
+            _sigma = sigma;
+            _windowsRange = windowsRange;
+            _featureRepository = new FeatureRepository(connectionString, featuresTable, "NG", logger);
+            _mlContext = new MLContext(seed: 0);
+            _logger = logger.ForContext<ModelTrainer>();
+
+            _logger.Information(
+                "Initializing ModelTrainer" +
+                "\nTable: {Table}" +
+                "\nThresholdPercent: {ThresholdPercent}" +
+                "\nSigma: {Sigma}" +
+                "\nWindowsRange: {WindowsRange}",
+                featuresTable,
+                thresholdPercent,
+                sigma,
+                windowsRange);
+
+            _features = LoadFeaturesFromPostgreSQL();
+            _logger.Information("Loaded {Count} features from DB", _features.Count);
+        }
+
+        /// <summary>
+        /// Загружает фичи из таблицы PostgreSQL, содержащей данные в формате FeatureRecordMapped
+        /// </summary>
+        /// <returns>
+        /// Список объектов <see cref="FeatureRecordMapped"/>
+        /// </returns>
+        private List<FeatureRecordMapped> LoadFeaturesFromPostgreSQL()
+        {
+            var features = new List<FeatureRecordMapped>();
+            _logger.Information("Loading features from table {Table}", _featuresTable);
+
+            using (var connection = new NpgsqlConnection(_connectionString))
             {
-                using (var reader = command.ExecuteReader())
+                connection.Open();
+                using (var command = new NpgsqlCommand(
+                    @$"SELECT 
+                        timestamp,
+                        bestbid,
+                        bestask,
+                        spread,
+                        imbalance,
+                        vwapbid,
+                        vwapask,
+                        totaltradevolume,
+                        tradecount,
+                        buytradevolume,
+                        selltradevolume,
+                        tradepricechange,
+                        midprice,
+                        spreadpct,
+                        pricechangepct,
+                        tradeintensity,
+                        label
+                      FROM {_featuresTable}", connection))
                 {
-                    while (reader.Read())
+                    using (var reader = command.ExecuteReader())
                     {
-                        var feature = new FeatureRecord
+                        while (reader.Read())
                         {
-                            Timestamp = reader.GetDateTime(0),
-                            BestBid = reader.GetDouble(1),
-                            BestAsk = reader.GetDouble(2),
-                            Spread = reader.GetDouble(3),
-                            Imbalance = reader.IsDBNull(4) ? double.NaN : reader.GetDouble(4),
-                            VWAPBid = reader.GetDouble(5),
-                            VWAPAsk = reader.GetDouble(6),
-                            TotalTradeVolume = reader.GetDouble(7),
-                            TradeCount = reader.GetInt32(8),
-                            BuyTradeVolume = reader.GetDouble(9),
-                            SellTradeVolume = reader.GetDouble(10),
-                            TradePriceChange = reader.GetDouble(11),
-                            MidPrice = reader.GetDouble(12),
-                            SpreadPct = reader.GetDouble(13),
-                            PriceChangePct = reader.GetDouble(14),
-                            TradeIntensity = reader.GetDouble(15),
-                            Label = (float)reader.GetDouble(16)
-                        };
-                        features.Add(feature);
+                            features.Add(new FeatureRecordMapped
+                            {
+                                Timestamp = reader.GetDateTime(0),
+                                BestBid = reader.GetFloat(1),
+                                BestAsk = reader.GetFloat(2),
+                                Spread = reader.GetFloat(3),
+                                Imbalance = reader.IsDBNull(4) ? 0 : reader.GetFloat(4),
+                                VWAPBid = reader.GetFloat(5),
+                                VWAPAsk = reader.GetFloat(6),
+                                TotalTradeVolume = reader.GetFloat(7),
+                                TradeCount = reader.GetFloat(8),
+                                BuyTradeVolume = reader.GetFloat(9),
+                                SellTradeVolume = reader.GetFloat(10),
+                                TradePriceChange = reader.GetFloat(11),
+                                MidPrice = reader.GetFloat(12),
+                                SpreadPct = reader.GetFloat(13),
+                                PriceChangePct = reader.GetFloat(14),
+                                TradeIntensity = reader.GetFloat(15),
+                                Label = reader.GetFloat(16)
+                            });
+                        }
                     }
                 }
             }
+
+            _logger.Information("Loaded {Count} features", features.Count);
+            return features;
         }
 
-        var windowOffset = 2;
-        ReLabelFeatures(features, _thresholdPercent, _windowOffset);
-        return features;
-    }
-
-    public List<FeatureRecordWithWeight> GetWeightedFeatures(List<FeatureRecordMapped> mappedFeatures)
-    {
-        // Подсчитываем количество примеров для каждого класса
-        var totalNegatives = mappedFeatures.Count(f => f.Label == false);
-        var totalPositives = mappedFeatures.Count(f => f.Label == true);
-
-        // Если позитивных примеров мало, то их вес можно задать как отношение количества негативных к позитивным
-        var positiveWeight = totalPositives > 0 ? (float)totalNegatives / totalPositives : 1f;
-
-        var weightedFeatures = mappedFeatures.Select(f => new FeatureRecordWithWeight
+        /// <summary>
+        /// Переразмечает загруженные фичи, назначая каждой вероятность смены тренда,
+        /// используя гауссовскую функцию: p = exp( - (distance^2) / (2 * sigma^2) )
+        /// </summary>
+        public void ReLabelFeaturesWithProbability()
         {
-            Timestamp = f.Timestamp,
-            BestBid = f.BestBid,
-            BestAsk = f.BestAsk,
-            Spread = f.Spread,
-            Imbalance = f.Imbalance,
-            VWAPBid = f.VWAPBid,
-            VWAPAsk = f.VWAPAsk,
-            TotalTradeVolume = f.TotalTradeVolume,
-            TradeCount = f.TradeCount,
-            BuyTradeVolume = f.BuyTradeVolume,
-            SellTradeVolume = f.SellTradeVolume,
-            TradePriceChange = f.TradePriceChange,
-            MidPrice = f.MidPrice,
-            SpreadPct = f.SpreadPct,
-            PriceChangePct = f.PriceChangePct,
-            TradeIntensity = f.TradeIntensity,
-            Label = f.Label,
-            Weight = f.Label ? positiveWeight : 1f
-        }).ToList();
+            _logger.Information(
+                "Re-labeling features with probability using" +
+                "\nThresholdPercent: {ThresholdPercent}" +
+                "\nSigma: {Sigma}" +
+                "\nWindowsRange: {WindowsRange}",
+                _thresholdPercent,
+                _sigma,
+                _windowsRange);
 
-        return weightedFeatures;
-    }
+            // Используем float[] для цен, так как BestBid и BestAsk имеют тип float
+            float[] prices = _features.Select(r => (r.BestBid + r.BestAsk) / 2).ToArray();
+            List<int> reversalIndices = FindTrendReversalIndices(prices, _thresholdPercent);
+            _logger.Information("Detected {Count} trend reversal points", reversalIndices.Count);
 
-    public List<FeatureRecordMapped> GetMappedFeatures(List<FeatureRecord> features)
-    {
-        return features.Select(r => new FeatureRecordMapped
-        {
-            Timestamp = r.Timestamp,
-            BestBid = (float)r.BestBid,
-            BestAsk = (float)r.BestAsk,
-            Spread = (float)r.Spread,
-            Imbalance = float.IsNaN((float)r.Imbalance) ? 0 : (float)r.Imbalance,
-            VWAPBid = (float)r.VWAPBid,
-            VWAPAsk = (float)r.VWAPAsk,
-            TotalTradeVolume = (float)r.TotalTradeVolume,
-            TradeCount = (float)r.TradeCount,
-            BuyTradeVolume = (float)r.BuyTradeVolume,
-            SellTradeVolume = (float)r.SellTradeVolume,
-            TradePriceChange = (float)r.TradePriceChange,
-            MidPrice = (float)r.MidPrice,
-            SpreadPct = (float)r.SpreadPct,
-            PriceChangePct = (float)r.PriceChangePct,
-            TradeIntensity = (float)r.TradeIntensity,
-            Label = r.Label > 0.5f // если Label > 0.5, то true, иначе false
-        }).ToList();
-    }
+            foreach (var feature in _features)
+            {
+                feature.Label = 0;
+            }
 
-    // Метод для oversampling: дублируем позитивные примеры так, чтобы их число приблизилось к числу негативных
-    public List<FeatureRecordMapped> BalanceDataByOversampling(List<FeatureRecordMapped> data)
-    {
-        // Разбиваем данные на позитивные и негативные примеры
-        var positives = data.Where(x => x.Label == true).ToList();
-        var negatives = data.Where(x => x.Label == false).ToList();
+            foreach (int i in reversalIndices)
+            {
+                int start = Math.Max(0, i - _windowsRange);
+                int end = Math.Min(_features.Count - 1, i + _windowsRange);
+                for (int j = start; j <= end; j++)
+                {
+                    float distance = Math.Abs(j - i);
+                    // Используем MathF.Exp для вычисления экспоненты с типом float
+                    float p = MathF.Exp(- (distance * distance) / (2 * (float)_sigma * (float)_sigma));
+                    _features[j].Label = Math.Max(_features[j].Label, p);
+                }
+            }
 
-        var positiveCount = positives.Count;
-        var negativeCount = negatives.Count;
-
-        // Если позитивных примеров нет, возвращаем исходный набор
-        if (positiveCount == 0)
-            return data;
-
-        // Рассчитываем, во сколько раз нужно увеличить количество позитивных примеров
-        var factor = negativeCount / positiveCount;
-        var remainder = negativeCount - (factor * positiveCount);
-
-        var oversampledPositives = new List<FeatureRecordMapped>();
-
-        // Полностью дублируем позитивы factor раз
-        for (var i = 0; i < factor; i++)
-        {
-            oversampledPositives.AddRange(positives);
+            _logger.Information("Re-labeling complete");
         }
 
-        // Добавляем ещё случайно выбранные позитивные примеры для достижения нужного числа
-        var rand = new Random();
-        oversampledPositives.AddRange(positives.OrderBy(x => rand.Next()).Take(remainder));
+        /// <summary>
+        /// Определяет индексы точек разворота в массиве цен на основе заданного порога
+        /// </summary>
+        /// <param name="prices">Массив цен (float[])</param>
+        /// <param name="thresholdPercent">Порог для обнаружения разворота</param>
+        /// <returns>Список индексов точек разворота</returns>
+        private static List<int> FindTrendReversalIndices(
+            float[] prices,
+            double thresholdPercent)
+        {
+            var reversalIndices = new List<int>();
 
-        // Объединяем негативные и oversampled позитивные примеры и перемешиваем
-        List<FeatureRecordMapped> balanced = new List<FeatureRecordMapped>();
-        balanced.AddRange(negatives);
-        balanced.AddRange(oversampledPositives);
+            if (prices == null || prices.Length < 2)
+            {
+                return reversalIndices;
+            }
 
-        return balanced.OrderBy(x => rand.Next()).ToList();
-    }
+            int lastExtremeIndex = 0;
+            // Приводим первый элемент к double для точности сравнения
+            double lastExtremePrice = prices[0];
+            reversalIndices.Add(lastExtremeIndex);
 
-// Метод для undersampling: выбираем случайную выборку негативных примеров так, чтобы их число было равно числу позитивных
-    public List<FeatureRecordMapped> BalanceDataByUndersampling(List<FeatureRecordMapped> data)
-    {
-        var positives = data.Where(x => x.Label == true).ToList();
-        var negatives = data.Where(x => x.Label == false).ToList();
+            int currentTrend = 0;
 
-        // Если позитивных примеров нет, возвращаем исходный набор
-        if (!positives.Any())
-            return data;
+            for (int i = 1; i < prices.Length; i++)
+            {
+                double price = prices[i];
+                if (currentTrend == 0)
+                {
+                    if (price >= lastExtremePrice * (1 + thresholdPercent))
+                    {
+                        currentTrend = 1;
+                        lastExtremeIndex = i;
+                        lastExtremePrice = price;
+                        reversalIndices.Add(i);
+                    }
+                    else if (price <= lastExtremePrice * (1 - thresholdPercent))
+                    {
+                        currentTrend = -1;
+                        lastExtremeIndex = i;
+                        lastExtremePrice = price;
+                        reversalIndices.Add(i);
+                    }
+                }
+                else if (currentTrend == 1)
+                {
+                    if (price > lastExtremePrice)
+                    {
+                        lastExtremeIndex = i;
+                        lastExtremePrice = price;
+                        reversalIndices[reversalIndices.Count - 1] = i;
+                    }
+                    else if (price <= lastExtremePrice * (1 - thresholdPercent))
+                    {
+                        currentTrend = -1;
+                        lastExtremeIndex = i;
+                        lastExtremePrice = price;
+                        reversalIndices.Add(i);
+                    }
+                }
+                else if (currentTrend == -1)
+                {
+                    if (price < lastExtremePrice)
+                    {
+                        lastExtremeIndex = i;
+                        lastExtremePrice = price;
+                        reversalIndices[reversalIndices.Count - 1] = i;
+                    }
+                    else if (price >= lastExtremePrice * (1 + thresholdPercent))
+                    {
+                        currentTrend = 1;
+                        lastExtremeIndex = i;
+                        lastExtremePrice = price;
+                        reversalIndices.Add(i);
+                    }
+                }
+            }
 
-        var rand = new Random();
-        // Случайным образом отбираем столько негативных, сколько позитивных
-        negatives = negatives.OrderBy(x => rand.Next()).Take(positives.Count).ToList();
+            return reversalIndices;
+        }
 
-        var balanced = new List<FeatureRecordMapped>();
-        balanced.AddRange(positives);
-        balanced.AddRange(negatives);
+        /// <summary>
+        /// Сохраняет обновленные целевые фичи в указанную таблицу PostgreSQL.
+        /// Перед сохранением удаляются старые записи для заданного тикера
+        /// </summary>
+        /// <param name="connectionString">
+        /// Строка подключения к PostgreSQL
+        /// </param>
+        /// <param name="tableName">
+        /// Имя таблицы для сохранения фич
+        /// </param>
+        /// <param name="ticker">
+        /// Тикер инструмента
+        /// </param>
+        public void SaveFeaturesToPostgreSQL(string ticker)
+        {
+            _logger.Information(
+                "Saving target features for ticker {Ticker}",
+                ticker);
+            _featureRepository.UpdateFeatures(_features, "NG_Labeled");
+            _logger.Information("Target features saved successfully for ticker {Ticker}", ticker);
+        }
 
-        return balanced.OrderBy(x => rand.Next()).ToList();
-    }
+        /// <summary>
+        /// Обучает регрессионную модель (LightGbm) для предсказания вероятности смены тренда
+        /// на основе целевых фич, загруженных из БД.
+        /// </summary>
+        /// <returns>
+        /// Кортеж, содержащий обученную модель и метрики регрессии,
+        /// с именованными параметрами: (ITransformer Model, RegressionMetrics Metrics)
+        /// </returns>
+        public (ITransformer Model, RegressionMetrics Metrics) TrainModel()
+        {
+            _logger.Information("Starting model training");
+            ReLabelFeaturesWithProbability();
+            var dataView = _mlContext.Data.LoadFromEnumerable(_features);
 
-    /// <summary>
-    /// Обучает модель на данных, загруженных из PostgreSQL, и выводит метрики.
-    /// </summary>
-    public (ITransformer, CalibratedBinaryClassificationMetrics) TrainModel()
-    {
-        // Загружаем данные из БД
-        var features = LoadFeaturesFromPostgreSQL("features");
-        // Преобразуем данные в тип, где все числовые признаки имеют тип float
-        var mappedFeatures = GetMappedFeatures(features);
+            var split = _mlContext.Data.TrainTestSplit(
+                dataView,
+                testFraction: 0.2);
+            var trainData = split.TrainSet;
+            var testData = split.TestSet;
 
-        var balancedFeatures = BalanceDataByOversampling(mappedFeatures);
-        // Создаём набор с весами
-        var weightedFeatures = GetWeightedFeatures(balancedFeatures);
-
-        // Загружаем данные в IDataView
-        var dataView = _mlContext.Data.LoadFromEnumerable(weightedFeatures);
-
-        // Разбиваем данные на обучающую и тестовую выборки (например, 80/20)
-        var split = _mlContext.Data.TrainTestSplit(dataView, testFraction: 0.2);
-        var trainData = split.TrainSet;
-        var testData = split.TestSet;
-
-        // Создаём пайплайн: объединяем признаки в один вектор
-        var pipeline = _mlContext.Transforms.Concatenate("Features",
+            var pipeline = _mlContext.Transforms.Concatenate(
+                "Features",
                 nameof(FeatureRecordMapped.BestBid),
                 nameof(FeatureRecordMapped.BestAsk),
                 nameof(FeatureRecordMapped.Spread),
@@ -233,222 +327,24 @@ public class ModelTrainer
                 nameof(FeatureRecordMapped.SpreadPct),
                 nameof(FeatureRecordMapped.PriceChangePct),
                 nameof(FeatureRecordMapped.TradeIntensity))
-            // Обучаем модель с использованием LightGBM и задаём имя столбца весов ("Weight")
-            .Append(_mlContext.BinaryClassification.Trainers.LightGbm(
+                .Append(_mlContext.Regression.Trainers.LightGbm(
+                    labelColumnName: "Label",
+                    featureColumnName: "Features",
+                    numberOfIterations: 100));
+
+            var model = pipeline.Fit(trainData);
+            var predictions = model.Transform(testData);
+            var metrics = _mlContext.Regression.Evaluate(
+                predictions,
                 labelColumnName: "Label",
-                featureColumnName: "Features",
-                exampleWeightColumnName: "Weight",
-                numberOfIterations: 100));
-        // Обучаем модель
-        var model = pipeline.Fit(trainData);
+                scoreColumnName: "Score");
 
-        // Оцениваем модель на тестовой выборке
-        var predictions = model.Transform(testData);
-        var metrics = _mlContext.BinaryClassification.Evaluate(predictions, labelColumnName: "Label");
+            _logger.Information(
+                "Model training complete. Metrics: R²={RSquared:P2}, RMSE={RMSE:F4}, MAE={MAE:F4}",
+                metrics.RSquared,
+                metrics.RootMeanSquaredError,
+                metrics.MeanAbsoluteError);
 
-        return (model, metrics);
-    }
-
-    public void EvaluateModelFromDB(string modelPath)
-    {
-        // Загружаем независимые данные из БД (например, данные за другой период)
-        var features = LoadFeaturesFromPostgreSQL("features");
-
-        // Преобразуем данные в формат для обучения (все числовые признаки в float, Label -> bool)
-        var mappedFeatures = GetMappedFeatures(features);
-
-        // Преобразуем список в IDataView
-        var testData = _mlContext.Data.LoadFromEnumerable(mappedFeatures);
-
-        // Загружаем модель из файла
-        var loadedModel = _mlContext.Model.Load(modelPath, out var modelInputSchema);
-
-        // Применяем модель к тестовым данным
-        var predictions = loadedModel.Transform(testData);
-
-        // Оцениваем модель (Label должен быть булевым)
-        var metrics = _mlContext.BinaryClassification.Evaluate(predictions, labelColumnName: "Label");
-
-        _logger.Information("Evaluation on independent data:");
-        _logger.Information("Accuracy: {Accuracy}", metrics.Accuracy.ToString("P2"));
-        _logger.Information("AUC: {AUC}", metrics.AreaUnderRocCurve.ToString("P2"));
-        _logger.Information("F1 Score: {F1Score}", metrics.F1Score.ToString("P2"));
-    }
-
-    public (double Precision, double Recall, double F1, double Accuracy) EvaluateModelWithAdjustedThreshold(string modelPath, float newThreshold)
-    {
-        // Загружаем независимый набор данных из БД
-        var features = LoadFeaturesFromPostgreSQL("features_ng_old");
-        List<FeatureRecordMapped> mappedFeatures = GetMappedFeatures(features);
-        var testData = _mlContext.Data.LoadFromEnumerable(mappedFeatures);
-
-        // Загружаем модель из файла
-        var loadedModel = _mlContext.Model.Load(modelPath, out var modelInputSchema);
-
-        // Применяем модель к тестовым данным
-        var predictions = loadedModel.Transform(testData);
-
-        // Конвертируем результаты в список PredictionResult
-        var predictionResults = _mlContext.Data.CreateEnumerable<PredictionResult>(predictions, reuseRowObject: false)
-            .ToList();
-
-        // Применяем новый порог: если Score >= newThreshold, считаем класс положительным
-        foreach (var result in predictionResults)
-        {
-            result.PredictedLabel = result.Score >= newThreshold;
+            return (Model: model, Metrics: metrics);
         }
-
-        // Вычисляем значения confusion matrix
-        var truePositive = predictionResults.Count(x => x.Label == true && x.PredictedLabel == true);
-        var falsePositive = predictionResults.Count(x => x.Label == false && x.PredictedLabel == true);
-        var trueNegative = predictionResults.Count(x => x.Label == false && x.PredictedLabel == false);
-        var falseNegative = predictionResults.Count(x => x.Label == true && x.PredictedLabel == false);
-
-        // Рассчитываем метрики
-        var precision = (truePositive + falsePositive) > 0
-            ? (double)truePositive / (truePositive + falsePositive)
-            : 0;
-        var recall = (truePositive + falseNegative) > 0
-            ? (double)truePositive / (truePositive + falseNegative)
-            : 0;
-        var f1 = (precision + recall) > 0
-            ? 2 * precision * recall / (precision + recall)
-            : 0;
-        var accuracy = (double)(truePositive + trueNegative) /
-                       (truePositive + falsePositive + trueNegative + falseNegative);
-
-        _logger.Information("Evaluation with adjusted threshold {Threshold}:", newThreshold);
-        _logger.Information("Confusion Matrix: TP={TP}, FP={FP}, TN={TN}, FN={FN}",
-            truePositive,
-            falsePositive,
-            trueNegative,
-            falseNegative);
-        _logger.Information("Precision: {Precision:P2}", precision);
-        _logger.Information("Recall: {Recall:P2}", recall);
-        _logger.Information("F1 Score: {F1Score:P2}", f1);
-        _logger.Information("Accuracy: {Accuracy:P2}", accuracy);
-
-        return (precision, recall, f1, accuracy);
     }
-
-    /// <summary>
-    /// Переразмечает фичи, расширяя позитивную разметку вокруг точек разворота.
-    /// Если для окна с индексом i обнаружен разворот, то окна с индексами от (i - windowOffset) до (i + windowOffset)
-    /// получают метку 1 (если они существуют).
-    /// </summary>
-    /// <param name="features">Список исходных фичей с первоначальной разметкой</param>
-    /// <param name="thresholdPercent">Порог для определения разворота</param>
-    /// <param name="windowOffset">Количество окон до и после точки разворота, которые следует отметить как позитивные</param>
-    public void ReLabelFeatures(List<FeatureRecord> features, double thresholdPercent, int windowOffset)
-    {
-        // Вычисляем массив цен как среднее между BestBid и BestAsk
-        double[] prices = features.Select(r => (r.BestBid + r.BestAsk) / 2).ToArray();
-
-        // Получаем индексы точек разворота по существующему алгоритму
-        var reversalIndices = FindTrendReversalIndices(prices, thresholdPercent);
-
-        // Сбрасываем текущие метки (присваиваем 0 всем)
-        foreach (var feature in features)
-        {
-            feature.Label = 0;
-        }
-
-        // Для каждого обнаруженного разворота помечаем окна вокруг него как позитивные
-        foreach (int idx in reversalIndices)
-        {
-            int start = Math.Max(0, idx - windowOffset);
-            int end = Math.Min(features.Count - 1, idx + windowOffset);
-            for (int i = start; i <= end; i++)
-            {
-                features[i].Label = 1;
-            }
-        }
-
-        // Дополнительно можно вывести информацию для отладки
-        Console.WriteLine(
-            $"Найдено {reversalIndices.Count} точек разворота. Позитивная разметка расширена на {windowOffset} окон до и после.");
-    }
-
-    /// <summary>
-    /// Сохраняет обученную модель в файл.
-    /// </summary>
-    public void SaveModel(ITransformer model, string modelPath)
-    {
-        // Для сохранения модели желательно передать входную схему,
-        // здесь используем данные из одной из выборок
-        var sampleData = _mlContext.Data.LoadFromEnumerable(new List<FeatureRecord>());
-        _mlContext.Model.Save(model, sampleData.Schema, modelPath);
-        _logger.Information("Model saved to {Path}", modelPath);
-    }
-
-    private static List<int> FindTrendReversalIndices(double[] prices, double thresholdPercent)
-    {
-        List<int> reversalIndices = new List<int>();
-
-        if (prices == null || prices.Length < 2)
-            return reversalIndices;
-
-        int lastExtremeIndex = 0;
-        double lastExtremePrice = prices[0];
-        reversalIndices.Add(lastExtremeIndex);
-
-        int currentTrend = 0;
-
-        for (int i = 1; i < prices.Length; i++)
-        {
-            double price = prices[i];
-
-            if (currentTrend == 0)
-            {
-                if (price >= lastExtremePrice * (1 + thresholdPercent))
-                {
-                    currentTrend = 1;
-                    lastExtremeIndex = i;
-                    lastExtremePrice = price;
-                    reversalIndices.Add(i);
-                }
-                else if (price <= lastExtremePrice * (1 - thresholdPercent))
-                {
-                    currentTrend = -1;
-                    lastExtremeIndex = i;
-                    lastExtremePrice = price;
-                    reversalIndices.Add(i);
-                }
-            }
-            else if (currentTrend == 1)
-            {
-                if (price > lastExtremePrice)
-                {
-                    lastExtremeIndex = i;
-                    lastExtremePrice = price;
-                    reversalIndices[reversalIndices.Count - 1] = i;
-                }
-                else if (price <= lastExtremePrice * (1 - thresholdPercent))
-                {
-                    currentTrend = -1;
-                    lastExtremeIndex = i;
-                    lastExtremePrice = price;
-                    reversalIndices.Add(i);
-                }
-            }
-            else if (currentTrend == -1)
-            {
-                if (price < lastExtremePrice)
-                {
-                    lastExtremeIndex = i;
-                    lastExtremePrice = price;
-                    reversalIndices[reversalIndices.Count - 1] = i;
-                }
-                else if (price >= lastExtremePrice * (1 + thresholdPercent))
-                {
-                    currentTrend = 1;
-                    lastExtremeIndex = i;
-                    lastExtremePrice = price;
-                    reversalIndices.Add(i);
-                }
-            }
-        }
-
-        return reversalIndices;
-    }
-}
