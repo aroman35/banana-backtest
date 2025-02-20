@@ -14,7 +14,7 @@ permissions:
 jobs:
   version_increment:
     name: Increment version
-    runs-on: self-hosted
+    runs-on: backtest-runners
     outputs:
       TAGS: ${{ steps.set_vars.outputs.TAGS }}
     steps:
@@ -35,7 +35,7 @@ jobs:
 
   build-container:
     name: Build container
-    runs-on: self-hosted
+    runs-on: backtest-runners
     needs:
       - version_increment
     steps:
@@ -57,7 +57,7 @@ jobs:
 
   push-container:
     name: Push Docker image to Docker Hub
-    runs-on: self-hosted
+    runs-on: backtest-runners
     needs:
       - build-container
       - version_increment
