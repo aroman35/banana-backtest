@@ -1,6 +1,6 @@
 ﻿using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.MarketData;
-using Npgsql;
+using Banana.Backtest.Emulator.Contracts;
 using Serilog;
 
 namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
@@ -13,8 +13,8 @@ namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
     public class FeatureBuilder : IEmulatorGateway
     {
         private readonly ILogger _logger;
-        private readonly TimeSpan _windowDuration = TimeSpan.FromSeconds(15);
-        private readonly List<FeatureRecordMapped> _features = new List<FeatureRecordMapped>();
+        private readonly TimeSpan _windowDuration = TimeSpan.FromSeconds(5);
+        private readonly List<FeatureRecordMapped> _features = new();
         private readonly FeatureRepository _featureRepository;
         public IReadOnlyList<FeatureRecordMapped> Features => _features;
         private DateTime _currentWindowStart = DateTime.MinValue;
@@ -52,7 +52,7 @@ namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
             {
                 FlushWindow();
                 // Новое окно: округление до начала текущей минуты.
-                _currentWindowStart = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
+                _currentWindowStart = Floor(dt, _windowDuration);
             }
 
             _latestOrderBook = orderBookSnapshot.Item;
@@ -71,7 +71,7 @@ namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
             if (dt >= _currentWindowStart + _windowDuration)
             {
                 FlushWindow();
-                _currentWindowStart = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
+                _currentWindowStart = Floor(dt, _windowDuration);
             }
 
             var tradeUpdate = trade.Item;
@@ -112,7 +112,7 @@ namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
         {
             if (_currentWindowStart == DateTime.MinValue)
             {
-                _currentWindowStart = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
+                _currentWindowStart = Floor(dt, _windowDuration);
                 _logger.Debug("Window initialized at {WindowStart}.", _currentWindowStart);
             }
         }
@@ -216,5 +216,14 @@ namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
             _logger.Information("Saving target features for ticker {Ticker} to table {Table}...", ticker, tableName);
             _featureRepository.BulkInsertFeatures(_features);
             _logger.Information("Target features saved successfully for ticker {Ticker}.", ticker);
+        }
+
+        private DateTime Floor(DateTime dateTime, TimeSpan interval)
+        {
+            if (interval.Ticks <= 0)
+                throw new ArgumentException("Interval must be greater than zero.", nameof(interval));
+
+            long flooredTicks = (dateTime.Ticks / interval.Ticks) * interval.Ticks;
+            return new DateTime(flooredTicks, dateTime.Kind);
         }
     }

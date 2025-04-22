@@ -14,6 +14,7 @@ public unsafe class MarketDataCacheReaderMmf<TMarketDataType> : IMarketDataCache
     private static readonly FeedType Feed = typeof(TMarketDataType).GetCustomAttribute<FeedAttribute>()?.Feed
                                       ?? throw new ArgumentException(
                                           $"Feed type is not defined for {typeof(TMarketDataType).Name}. Ensure that {nameof(FeedAttribute)} is set.");
+
     private static readonly long ItemSize = sizeof(MarketDataItem<TMarketDataType>);
     private static readonly long MetaSize = sizeof(MarketDataCacheMeta);
 

@@ -63,7 +63,7 @@ namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
                     {
                         writer.StartRow();
                         writer.Write(ticker ?? _ticker, NpgsqlDbType.Varchar);
-                        writer.Write(feature.Timestamp, NpgsqlDbType.Timestamp);
+                        writer.Write(feature.Timestamp, NpgsqlDbType.TimestampTz);
                         writer.Write(feature.BestBid, NpgsqlDbType.Real);
                         writer.Write(feature.BestAsk, NpgsqlDbType.Real);
                         writer.Write(feature.Spread, NpgsqlDbType.Real);

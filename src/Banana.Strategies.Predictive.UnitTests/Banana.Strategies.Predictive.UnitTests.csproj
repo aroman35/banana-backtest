@@ -12,7 +12,9 @@
     <ItemGroup>
         <PackageReference Include="coverlet.collector" Version="6.0.0"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0"/>
+        <PackageReference Include="Moq" Version="4.20.72" />
         <PackageReference Include="Serilog.Sinks.XUnit" Version="3.0.19" />
+        <PackageReference Include="Shouldly" Version="4.3.0" />
         <PackageReference Include="xunit" Version="2.5.3"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3"/>
     </ItemGroup>
@@ -23,6 +25,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Banana.Backtest.CryptoConverter\Banana.Backtest.CryptoConverter.csproj" />
+      <ProjectReference Include="..\Banana.Backtest.Launcher\Banana.Backtest.Launcher.csproj" />
       <ProjectReference Include="..\Banana.Strategies.Predictive\Banana.Strategies.Predictive.csproj" />
     </ItemGroup>
 

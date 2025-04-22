@@ -8,10 +8,20 @@ using Serilog;
 
 namespace Banana.Backtest.MoexConverter.Parsers;
 
-public class TradesLogParser(string filePath, IParserHandler<TradeUpdate> parserHandler, ILogger logger)
-    : AbstractCsvParser<TradeUpdate>(File.Open(filePath, FileMode.Open, FileAccess.Read), parserHandler)
+public class TradesLogParser : AbstractCsvParser<TradeUpdate>
 {
-    private readonly ILogger _logger = logger.ForContext<TradesLogParser>();
+    private readonly ILogger _logger;
+
+    public TradesLogParser(string filePath, IParserHandler<TradeUpdate> parserHandler, ILogger logger)
+        : base(File.Open(filePath, FileMode.Open, FileAccess.Read), parserHandler)
+    {
+        _logger = logger.ForContext<TradesLogParser>();
+    }
+
+    public TradesLogParser(Stream stream, IParserHandler<TradeUpdate> parserHandler, ILogger logger) : base(stream, parserHandler)
+    {
+        _logger = logger.ForContext<TradesLogParser>();
+    }
 
     protected override bool ParseLine(Span<byte> line, out MarketDataItem<TradeUpdate> marketDataItem, out Symbol symbol)
     {

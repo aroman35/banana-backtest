@@ -1,8 +1,8 @@
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
-using Banana.Backtest.Common.Extensions;
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.MarketData;
+using Banana.Backtest.Emulator.Contracts;
 using Banana.Backtest.Emulator.ExchangeEmulator;
 
 namespace Banana.Strategies.Predictive;

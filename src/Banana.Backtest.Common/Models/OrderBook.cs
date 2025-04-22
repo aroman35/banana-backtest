@@ -20,13 +20,21 @@ public class OrderBook
 
     // Lists to store the levels for bids and asks
     private readonly SortedDictionary<double, OrderBookLevel> _bids = new(Comparer<double>.Create((x, y) => y.CompareTo(x)));
+
     private readonly SortedDictionary<double, OrderBookLevel> _asks = new();
     private long _timestamp;
 
-    public OrderBookLevel BestBid => _bids.FirstOrDefault().Value;
-    public OrderBookLevel BestAsk => _asks.FirstOrDefault().Value;
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public OrderBookLevel BestOffer(Side side) => side is Side.Long ? BestAsk() : BestBid();
+
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public OrderBookLevel BestBid() => _bids.FirstOrDefault().Value;
+
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public OrderBookLevel BestAsk() => _asks.FirstOrDefault().Value;
+
     public bool IsReady => _bids.Count > 0 && _asks.Count > 0;
-    public bool IsConsistent => BestBid.Price.IsLower(BestAsk.Price);
+    public bool IsConsistent => BestBid().Price.IsLower(BestAsk().Price);
     public DateTime Timestamp => _timestamp.AsDateTime();
     public SortedDictionary<double, OrderBookLevel> Bids => _bids;
     public SortedDictionary<double, OrderBookLevel> Ask => _asks;
@@ -34,6 +42,11 @@ public class OrderBook
     // Method to handle an update to the order book
     public void UpdateOrder(MarketDataItem<LevelUpdate> levelUpdate)
     {
+        if (levelUpdate.Item.Price.IsEquals(0.0D))
+        {
+            RemoveOrder(levelUpdate.Item.IsBid, levelUpdate.Item.Quantity);
+            return;
+        }
         if (levelUpdate.Item.Quantity == 0)
         {
             // Remove the level if quantity is zero (means no orders left at that price)
@@ -48,6 +61,7 @@ public class OrderBook
         _timestamp = levelUpdate.Timestamp;
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     private void AddOrUpdateOrder(bool isBid, double price, double quantity)
     {
         var bookSide = isBid ? _bids : _asks;
@@ -64,6 +78,7 @@ public class OrderBook
         }
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     private void RemoveOrder(bool isBid, double price)
     {
         var bookSide = isBid ? _bids : _asks;
@@ -72,9 +87,11 @@ public class OrderBook
 
     public override string ToString()
     {
-        return $"[{Timestamp.ToLocalTime():O}]Bid: {BestBid.Price}x{BestBid.Quantity}, Ask: {BestAsk.Price}x{BestAsk.Quantity}";
+        return
+            $"[{Timestamp.ToLocalTime():O}]Bid: {BestBid().Price}x{BestBid().Quantity}, Ask: {BestAsk().Price}x{BestAsk().Quantity}";
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public unsafe OrderBookSnapshot TakeSnapshot()
     {
         using var bidsEnumerator = Bids.GetEnumerator();
@@ -119,14 +136,23 @@ public class OrderBook
 
 public unsafe struct OrderBookSnapshot
 {
-    public const int Depth = 20;
+    public const int Depth = 50;
 
     public fixed double BidPrices[Depth];
     public fixed double BidQuantities[Depth];
     public fixed double AskPrices[Depth];
     public fixed double AskQuantities[Depth];
 
+    /// <summary>
+    /// Получение уровня из предложений на продажу
+    /// </summary>
+    /// <param name="level">Номер уровня. Считаются с 1</param>
     public OrderBook.OrderBookLevel Bid(int level) => new(BidPrices[level], BidQuantities[level]);
+
+    /// <summary>
+    /// Получение уровня из предложений на покупку
+    /// </summary>
+    /// <param name="level">Номер уровня. Считаются с 1</param>
     public OrderBook.OrderBookLevel Ask(int level) => new(AskPrices[level], AskQuantities[level]);
 
 
@@ -174,6 +200,7 @@ public unsafe struct OrderBookSnapshot
                 price = BidPrices[i];
                 quantity = BidQuantities[i];
             }
+
             yield return new OrderBook.OrderBookLevel(price, quantity);
         }
     }
@@ -190,6 +217,7 @@ public unsafe struct OrderBookSnapshot
                 price = AskPrices[i];
                 quantity = AskQuantities[i];
             }
+
             yield return new OrderBook.OrderBookLevel(price, quantity);
         }
     }

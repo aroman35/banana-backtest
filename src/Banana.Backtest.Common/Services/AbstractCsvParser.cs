@@ -22,6 +22,14 @@ public abstract class AbstractCsvParser<T> : IDisposable
         _fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
     }
 
+    protected AbstractCsvParser(Stream fileStream, IParserHandler<T> parserHandler)
+    {
+        _parserHandler = parserHandler;
+        _fileStream = fileStream;
+        if (_fileStream.CanSeek)
+            _fileStream.Seek(0, SeekOrigin.Begin);
+    }
+
     protected AbstractCsvParser(Stream stream, IParserHandler<T> parserHandler, byte[]? lineSeparator = null)
     {
         _parserHandler = parserHandler;

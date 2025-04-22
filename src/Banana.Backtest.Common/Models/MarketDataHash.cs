@@ -53,7 +53,9 @@ public struct MarketDataHash : IEquatable<MarketDataHash>
 
     public override string ToString()
     {
-        return $"{Symbol.ToString()}[{Date:dd.MM.yyyy}] {Feed.ToString()}";
+        return Feed is FeedType.Unknown
+            ? $"{Symbol.ToString()}[{Date:dd.MM.yyyy}]"
+            : $"{Symbol.ToString()}[{Date:dd.MM.yyyy}] {Feed.ToString()}";
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

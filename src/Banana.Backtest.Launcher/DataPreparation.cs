@@ -12,19 +12,37 @@ public class DataPreparation(InstrumentsCatalog instrumentsCatalog, ILogger logg
     private const string MarketDataDirectory = "D:/market-data-storage";
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        var tradeDate = new DateOnly(2024, 04, 01);
-        var endDate = new DateOnly(2024, 09, 30);
-        for (; tradeDate <= endDate; tradeDate = tradeDate.AddDays(1))
-        {
-            var hash = await PrepareMarketDataForBaseAsset(tradeDate, "NG");
-            var emulator = new Emulator.Emulator(hash, MarketDataDirectory, logger);
-            emulator.Process();
-        }
+        var tradeDate = new DateOnly(2024, 09, 02);
+        var endDate = new DateOnly(2024, 09, 29);
+        await EmulateDate(tradeDate);
+
+        // var emulationTasks = Enumerable
+        //     .Repeat(tradeDate, 30)
+        //     .Select((date, idx) => date.AddDays(idx))
+        //     .Select(EmulateDate)
+        //     .Chunk(5);
+        //
+        // foreach (var chunk in emulationTasks)
+        // {
+        //     await Parallel.ForEachAsync(chunk, cancellationToken, (task, _) => task);
+        // }
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
         return Task.CompletedTask;
+    }
+
+    private async ValueTask EmulateDate(DateOnly tradeDate)
+    {
+        var hash = await PrepareMarketDataForBaseAsset(tradeDate, "NG");
+        var emulator = new Emulator.Emulator(hash, MarketDataDirectory, logger);
+        var thread = new Thread(() => emulator.Process(), 1024 * 1024 * 1024)
+        {
+            IsBackground = true
+        };
+        thread.Start();
+        thread.Join();
     }
 
     private async Task<MarketDataHash> PrepareMarketDataForBaseAsset(DateOnly dateOnly, string asset)

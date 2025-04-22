@@ -1,4 +1,5 @@
-﻿using Microsoft.ML;
+﻿using Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy.Runtime;
+using Microsoft.ML;
 using Microsoft.ML.Data;
 using Npgsql;
 using Serilog;
@@ -15,6 +16,7 @@ namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
         private readonly FeatureRepository _featureRepository;
         private readonly string _connectionString;
         private readonly MLContext _mlContext;
+        private readonly ModelHandler _modelHandler;
         private readonly double _thresholdPercent;
         private readonly int _windowsRange;
         private readonly double _sigma;
@@ -61,6 +63,8 @@ namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
             _windowsRange = windowsRange;
             _featureRepository = new FeatureRepository(connectionString, featuresTable, "NG", logger);
             _mlContext = new MLContext(seed: 0);
+
+            _modelHandler = new ModelHandler(_mlContext);
             _logger = logger.ForContext<ModelTrainer>();
 
             _logger.Information(
@@ -119,7 +123,7 @@ namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
                         {
                             features.Add(new FeatureRecordMapped
                             {
-                                Timestamp = reader.GetDateTime(0),
+                                Timestamp = DateTime.SpecifyKind(reader.GetDateTime(0), DateTimeKind.Utc),
                                 BestBid = reader.GetFloat(1),
                                 BestAsk = reader.GetFloat(2),
                                 Spread = reader.GetFloat(3),
@@ -311,22 +315,22 @@ namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
             var testData = split.TestSet;
 
             var pipeline = _mlContext.Transforms.Concatenate(
-                "Features",
-                nameof(FeatureRecordMapped.BestBid),
-                nameof(FeatureRecordMapped.BestAsk),
-                nameof(FeatureRecordMapped.Spread),
-                nameof(FeatureRecordMapped.Imbalance),
-                nameof(FeatureRecordMapped.VWAPBid),
-                nameof(FeatureRecordMapped.VWAPAsk),
-                nameof(FeatureRecordMapped.TotalTradeVolume),
-                nameof(FeatureRecordMapped.TradeCount),
-                nameof(FeatureRecordMapped.BuyTradeVolume),
-                nameof(FeatureRecordMapped.SellTradeVolume),
-                nameof(FeatureRecordMapped.TradePriceChange),
-                nameof(FeatureRecordMapped.MidPrice),
-                nameof(FeatureRecordMapped.SpreadPct),
-                nameof(FeatureRecordMapped.PriceChangePct),
-                nameof(FeatureRecordMapped.TradeIntensity))
+                    "Features",
+                    nameof(FeatureRecordMapped.BestBid),
+                    nameof(FeatureRecordMapped.BestAsk),
+                    nameof(FeatureRecordMapped.Spread),
+                    nameof(FeatureRecordMapped.Imbalance),
+                    nameof(FeatureRecordMapped.VWAPBid),
+                    nameof(FeatureRecordMapped.VWAPAsk),
+                    nameof(FeatureRecordMapped.TotalTradeVolume),
+                    nameof(FeatureRecordMapped.TradeCount),
+                    nameof(FeatureRecordMapped.BuyTradeVolume),
+                    nameof(FeatureRecordMapped.SellTradeVolume),
+                    nameof(FeatureRecordMapped.TradePriceChange),
+                    nameof(FeatureRecordMapped.MidPrice),
+                    nameof(FeatureRecordMapped.SpreadPct),
+                    nameof(FeatureRecordMapped.PriceChangePct),
+                    nameof(FeatureRecordMapped.TradeIntensity))
                 .Append(_mlContext.Regression.Trainers.LightGbm(
                     labelColumnName: "Label",
                     featureColumnName: "Features",
@@ -345,6 +349,7 @@ namespace Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
                 metrics.RootMeanSquaredError,
                 metrics.MeanAbsoluteError);
 
+            _modelHandler.SaveModel(model, testData.Schema);
             return (Model: model, Metrics: metrics);
         }
     }

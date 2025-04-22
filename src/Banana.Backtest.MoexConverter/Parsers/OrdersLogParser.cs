@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Text;
+using Banana.Backtest.Common.Extensions;
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.MarketData;
 using Banana.Backtest.Common.Models.Root;
@@ -8,10 +9,19 @@ using Serilog;
 
 namespace Banana.Backtest.MoexConverter.Parsers;
 
-public class OrdersLogParser(string filePath, IParserHandler<OrderUpdate> parserHandler, ILogger logger)
-    : AbstractCsvParser<OrderUpdate>(filePath, parserHandler)
+public class OrdersLogParser : AbstractCsvParser<OrderUpdate>
 {
-    private readonly ILogger _logger = logger.ForContext<OrdersLogParser>();
+    private readonly ILogger _logger;
+
+    public OrdersLogParser(string filePath, IParserHandler<OrderUpdate> parserHandler, ILogger logger) : base(filePath, parserHandler)
+    {
+        _logger = logger.ForContext<OrdersLogParser>();
+    }
+
+    public OrdersLogParser(Stream stream, IParserHandler<OrderUpdate> parserHandler, ILogger logger) : base(stream, parserHandler)
+    {
+        _logger = logger.ForContext<OrdersLogParser>();
+    }
 
     protected override unsafe bool ParseLine(Span<byte> line, out MarketDataItem<OrderUpdate> marketDataItem, out Symbol symbol)
     {
@@ -94,6 +104,7 @@ public class OrdersLogParser(string filePath, IParserHandler<OrderUpdate> parser
                 {
                     OrderId = orderId,
                     Side = side,
+                    Timestamp = timestamp,
                     Price = price,
                     Quantity = quantity,
                     Type = type,
@@ -101,6 +112,11 @@ public class OrdersLogParser(string filePath, IParserHandler<OrderUpdate> parser
                     ExecutionPrice = executionPrice
                 }
             };
+            if (marketDataItem.Item.Price.IsEquals(0.0D))
+            {
+                // Debugger.Break();
+                _logger.Error("Found zero price");
+            }
 
             return true;
         }

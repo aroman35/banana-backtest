@@ -1,15 +1,7 @@
-﻿using System.Diagnostics;
-using System.Drawing;
-using System.Globalization;
-using Banana.Backtest.Common.Extensions;
-using Banana.Backtest.Common.Models;
+﻿using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.MarketData;
+using Banana.Backtest.Emulator.Contracts;
 using Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
-using CsvHelper;
-using CsvHelper.Configuration;
-using MathNet.Numerics.Statistics;
-using Microsoft.ML;
-using ScottPlot;
 using Serilog;
 
 namespace Banana.Backtest.Emulator.ExchangeEmulator;
@@ -19,12 +11,11 @@ namespace Banana.Backtest.Emulator.ExchangeEmulator;
 // Vector(2) Label = 0.8
 // Vector(3) Label = 0.9
 // Vector(4) Label = 1.0
+[Obsolete]
 public class StrategyWrapper : IStrategy
 {
     private const int DATA_DEPTH = 128;
     private readonly ILogger _logger;
-    private readonly TimeOnly _openTime = new(10, 0, 0);
-    private readonly TimeOnly _closeTime = new(18, 50, 0);
     private readonly List<UserOrder> _userOrders = new();
     private readonly List<UserExecution> _userExecutions = new();
     private readonly Emulator _emulator;

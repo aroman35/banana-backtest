@@ -9,6 +9,9 @@ public class SourcesConverterSettings
     private const string COMPRESSION_LEVEL_HELP = "Compression level (Optimal, Fastest, NoCompression, SmallestSize), dafault = Optimal";
     private const string COMPRESSION_TYPES_HELP = "Compression type (NoCompression, GZip, Brotli, Deflate), default = Brotli";
 
+    [Option('i', "input", Required = false, HelpText = "Directory with compressed source files")]
+    public string? InputDirectory { get; set; }
+
     [Option('o', "ordersPath", Required = false, HelpText = "Path to orders source file")]
     public string? OrdersLogFilePath { get; set; }
     [Option('t', "tradesPath", Required = false, HelpText = "Path to trades source file")]
@@ -22,4 +25,5 @@ public class SourcesConverterSettings
 
     public bool IsOrdersParsingRequested => !string.IsNullOrWhiteSpace(OrdersLogFilePath);
     public bool IsTradesParsingRequested => !string.IsNullOrWhiteSpace(TradesFilePath);
+    public bool IsDirectoryScanMode => !string.IsNullOrWhiteSpace(InputDirectory);
 }

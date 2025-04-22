@@ -21,3 +21,28 @@ public struct MarketDataItem<TMarketData>(TMarketData item, long timestamp)
         return $"[{Timestamp.AsDateTime().ToLocalTime():O}]: {Item.ToString()}";
     }
 }
+
+public struct MarketDataItem
+{
+    public MarketDataItem<TradeUpdate> Trade;
+    public MarketDataItem<OrderBookSnapshot> OrderBook;
+    public long Timestamp => IsTrade ? Trade.Timestamp : OrderBook.Timestamp;
+    public bool IsTrade;
+
+    public static MarketDataItem FromTrade(MarketDataItem<TradeUpdate> trade)
+    {
+        return new MarketDataItem
+        {
+            Trade = trade,
+            IsTrade = true
+        };
+    }
+
+    public static MarketDataItem FromOrderBook(OrderBookSnapshot orderBook)
+    {
+        return new MarketDataItem
+        {
+            OrderBook = new MarketDataItem<OrderBookSnapshot>(orderBook, orderBook.Timestamp)
+        };
+    }
+}
