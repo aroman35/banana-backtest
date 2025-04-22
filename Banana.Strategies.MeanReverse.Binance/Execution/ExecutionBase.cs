@@ -16,7 +16,6 @@ using Microsoft.Extensions.Options;
 using Serilog.Events;
 using OrderStatus = Banana.Backtest.Emulator.Contracts.OrderStatus;
 using UserOrder = Banana.Strategies.MeanReverse.Binance.Execution.Models.UserOrder;
-using static Banana.Strategies.MeanReverse.Binance.Extensions.JobsExtensions;
 
 namespace Banana.Strategies.MeanReverse.Binance.Execution;
 

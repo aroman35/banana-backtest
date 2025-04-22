@@ -4,7 +4,6 @@ using Banana.Strategies.MeanReverse.Binance.DataFlow;
 using Banana.Strategies.MeanReverse.Binance.Execution.Models;
 using Binance.Net.Objects.Models.Futures.Socket;
 using MongoDB.Driver;
-using static Banana.Strategies.MeanReverse.Binance.Extensions.JobsExtensions;
 
 namespace Banana.Strategies.MeanReverse.Binance.Persistence;
 

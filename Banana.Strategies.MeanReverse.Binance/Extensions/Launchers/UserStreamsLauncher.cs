@@ -1,6 +1,5 @@
 ﻿using Banana.Strategies.MeanReverse.Binance.DataFlow;
 using Binance.Net.Interfaces.Clients;
-using static Banana.Strategies.MeanReverse.Binance.Extensions.JobsExtensions;
 
 namespace Banana.Strategies.MeanReverse.Binance.Extensions.Launchers;
 

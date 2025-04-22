@@ -12,8 +12,9 @@ public class InstrumentsCache(
 {
     protected override async IAsyncEnumerable<KeyValuePair<string, BinanceFuturesSymbol>> LoadData([EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var exchangeInfo = await binanceRestClient.UsdFuturesApi.ExchangeData.GetExchangeInfoAsync(cancellationToken);
-        foreach (var instrument in exchangeInfo.Data.Symbols)
+        var response = await binanceRestClient.UsdFuturesApi.ExchangeData.GetExchangeInfoAsync(cancellationToken);
+        ThrowIfError(response.Error);
+        foreach (var instrument in response.Data.Symbols)
         {
             yield return new KeyValuePair<string, BinanceFuturesSymbol>(instrument.Name, instrument);
         }

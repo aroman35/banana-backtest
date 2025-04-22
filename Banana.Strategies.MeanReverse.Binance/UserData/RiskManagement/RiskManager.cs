@@ -8,7 +8,6 @@ using Banana.Strategies.MeanReverse.Binance.Extensions.Launchers.Cache;
 using Banana.Strategies.MeanReverse.Binance.MarketData;
 using Banana.Strategies.MeanReverse.Binance.UserData.Positions;
 using Binance.Net.Objects.Models.Futures;
-using static Banana.Strategies.MeanReverse.Binance.Extensions.JobsExtensions;
 
 namespace Banana.Strategies.MeanReverse.Binance.UserData.RiskManagement;
 

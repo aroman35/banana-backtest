@@ -6,4 +6,6 @@ public class ExecutionOptions
 {
     public TimeInForce LimitOrderDefaultTimeInForce { get; init; }
     public TimeSpan OrderDefaultTimeout { get; init; }
+    public bool SaveToDatabase { get; init; }
+    public string? MongoDbConnectionString { get; init; }
 }

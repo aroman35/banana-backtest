@@ -3,7 +3,6 @@ using Banana.Strategies.MeanReverse.Binance.Extensions.Launchers.Cache;
 using Binance.Net.Interfaces.Clients;
 using Binance.Net.Objects.Models.Futures;
 using Microsoft.Extensions.Options;
-using static Banana.Strategies.MeanReverse.Binance.Extensions.JobsExtensions;
 
 namespace Banana.Strategies.MeanReverse.Binance.Extensions.Launchers;
 

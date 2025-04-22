@@ -3,7 +3,6 @@ using Banana.Strategies.MeanReverse.Binance.DataFlow;
 using Binance.Net.Interfaces.Clients;
 using Binance.Net.Objects.Models.Futures.Socket;
 using Microsoft.Extensions.Caching.Memory;
-using static Banana.Strategies.MeanReverse.Binance.Extensions.JobsExtensions;
 
 namespace Banana.Strategies.MeanReverse.Binance.Extensions.Launchers.Cache;
 
@@ -16,8 +15,9 @@ public class UserBalanceCache(
     private readonly ILogger _logger = logger.ForContext<UserBalanceCache>();
     protected override async IAsyncEnumerable<KeyValuePair<string, BinanceFuturesStreamBalance>> LoadData([EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var initialBalances = await binanceRestClient.UsdFuturesApi.Account.GetBalancesAsync(ct: cancellationToken);
-        foreach (var balance in initialBalances.Data)
+        var response = await binanceRestClient.UsdFuturesApi.Account.GetBalancesAsync(ct: cancellationToken);
+        ThrowIfError(response.Error);
+        foreach (var balance in response.Data)
         {
             var data = new BinanceFuturesStreamBalance
             {

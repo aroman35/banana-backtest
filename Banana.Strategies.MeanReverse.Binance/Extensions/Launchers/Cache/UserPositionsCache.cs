@@ -17,8 +17,9 @@ public class UserPositionsCache(
     private readonly ILogger _logger = logger;
     protected override async IAsyncEnumerable<KeyValuePair<string, UserPosition>> LoadData([EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var positions = await binanceRestClient.UsdFuturesApi.Account.GetPositionInformationAsync(ct: cancellationToken);
-        foreach (var binancePositionDetails in positions.Data)
+        var response = await binanceRestClient.UsdFuturesApi.Account.GetPositionInformationAsync(ct: cancellationToken);
+        ThrowIfError(response.Error);
+        foreach (var binancePositionDetails in response.Data)
         {
             var userPosition = new UserPosition(binancePositionDetails, deferredExecution, mediator, cancellationToken, _logger);
             yield return new KeyValuePair<string, UserPosition>(binancePositionDetails.Symbol, userPosition);

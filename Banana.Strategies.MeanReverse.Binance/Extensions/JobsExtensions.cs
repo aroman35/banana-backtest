@@ -41,29 +41,11 @@ public static class JobsExtensions
             if (onError is not null)
                 await onError.Invoke(exception);
         }
-        // await Task.Factory.StartNew(async void () =>
-        // {
-        //     try
-        //     {
-        //         await Task.Yield();
-        //         await foreach (var data in dataSource.WithCancellation(cancellationToken))
-        //         {
-        //             if (data is not null)
-        //                 await onDataReceived(data, cancellationToken);
-        //         }
-        //     }
-        //     catch (OperationCanceledException)
-        //     {
-        //         // ignore and close stream
-        //     }
-        //     catch (Exception exception)
-        //     {
-        //         if (onError is not null)
-        //             await onError.Invoke(exception);
-        //     }
-        // },
-        // cancellationToken,
-        // TaskCreationOptions.LongRunning,
-        // TaskScheduler.Default);
+    }
+
+    public static void ThrowIfError(CryptoExchange.Net.Objects.Error? error)
+    {
+        if (error is not null)
+            throw new InvalidOperationException($"Error while initiating api request ({error.Code}): {error.Message}");
     }
 }

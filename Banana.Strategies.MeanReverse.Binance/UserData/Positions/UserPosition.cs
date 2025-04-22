@@ -5,7 +5,6 @@ using Banana.Strategies.MeanReverse.Binance.Execution.Models;
 using Banana.Strategies.MeanReverse.Binance.Extensions;
 using Binance.Net.Objects.Models.Futures;
 using Binance.Net.Objects.Models.Futures.Socket;
-using static Banana.Strategies.MeanReverse.Binance.Extensions.JobsExtensions;
 
 namespace Banana.Strategies.MeanReverse.Binance.UserData.Positions;
 
