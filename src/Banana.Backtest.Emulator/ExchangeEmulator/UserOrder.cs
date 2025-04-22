@@ -1,9 +1,9 @@
 ﻿using System.Runtime.InteropServices;
-using Banana.Backtest.Common.Extensions;
 using Banana.Backtest.Common.Models;
 
 namespace Banana.Backtest.Emulator.ExchangeEmulator;
 
+[Obsolete]
 [StructLayout(LayoutKind.Sequential)]
 public struct UserOrder
 {
@@ -17,46 +17,10 @@ public struct UserOrder
 
     public UserOrder PartiallyFill(double executedQuantity)
     {
-        return this with { Quantity = Quantity - executedQuantity };
-    }
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct UserExecution
-{
-    public long TradeId;
-    public long OrderId;
-    public Side Side;
-    public double ExecutionPrice;
-    public double ExecutedQuantity;
-    public long Timestamp;
-
-    public static UserExecution OrderFullFill(UserOrder order)
-    {
-        return new UserExecution
+        return this with
         {
-            TradeId = Helpers.NextId,
-            OrderId = order.Id,
-            Side = order.Side,
-            ExecutionPrice = order.Price,
-            ExecutedQuantity = order.Quantity,
-            Timestamp = Helpers.Timestamp
+            Quantity = Quantity - executedQuantity
         };
-    }
-
-    public static unsafe UserExecution OrderPartiallyFill(UserOrder* orderPtr, double executedQuantity)
-    {
-        var execution = new UserExecution
-        {
-            TradeId = Helpers.NextId,
-            OrderId = orderPtr->Id,
-            Side = orderPtr->Side,
-            ExecutionPrice = orderPtr->Price,
-            ExecutedQuantity = executedQuantity,
-            Timestamp = Helpers.Timestamp
-        };
-        *orderPtr = orderPtr->PartiallyFill(executedQuantity);
-        return execution;
     }
 }
 

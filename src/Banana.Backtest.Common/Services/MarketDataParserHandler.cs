@@ -56,11 +56,15 @@ public class MarketDataParserHandler<TMarketDataType>(
     {
         return _openedFiles.GetOrAdd(
             marketDataHash,
-            hash => MarketDataCacheAccessorProvider.CreateWriter<TMarketDataType>(
-                marketDataParserHandlerOptions.Value.OutputDirectory,
-                hash,
-                marketDataParserHandlerOptions.Value.CompressionType,
-                marketDataParserHandlerOptions.Value.CompressionLevel));
+            hash =>
+            {
+                _logger.Information("Starting new file: {Hash}", marketDataHash);
+                return MarketDataCacheAccessorProvider.CreateWriter<TMarketDataType>(
+                    marketDataParserHandlerOptions.Value.OutputDirectory,
+                    hash,
+                    marketDataParserHandlerOptions.Value.CompressionType,
+                    marketDataParserHandlerOptions.Value.CompressionLevel);
+            });
     }
 
     public void Dispose()

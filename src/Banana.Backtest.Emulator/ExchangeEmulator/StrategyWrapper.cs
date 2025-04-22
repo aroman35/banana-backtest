@@ -1,24 +1,29 @@
-﻿using System.Diagnostics;
-using Banana.Backtest.Common.Extensions;
-using Banana.Backtest.Common.Models;
+﻿using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.MarketData;
+using Banana.Backtest.Emulator.Contracts;
+using Banana.Backtest.Emulator.ExchangeEmulator.LazyStrategy;
 using Serilog;
 
 namespace Banana.Backtest.Emulator.ExchangeEmulator;
 
+// Vector(1 - N) Label = Lim(k/N)
+// Vector(1) Label = 0.7
+// Vector(2) Label = 0.8
+// Vector(3) Label = 0.9
+// Vector(4) Label = 1.0
+[Obsolete]
 public class StrategyWrapper : IStrategy
 {
     private const int DATA_DEPTH = 128;
     private readonly ILogger _logger;
-    private readonly TimeOnly _openTime = new(10, 0, 0);
-    private readonly TimeOnly _closeTime = new(18, 50, 0);
     private readonly List<UserOrder> _userOrders = new();
     private readonly List<UserExecution> _userExecutions = new();
     private readonly Emulator _emulator;
-    private readonly long _tradeDateOpenTimestamp;
-    private readonly long _tradeDateCloseTimestamp;
-    private readonly long _simulationStartedTimestamp;
+    private readonly List<MarketDataItem<TradeUpdate>> _allTrades = new();
+    private readonly List<FeaturesClass> _features = new();
+    private readonly FeatureBuilder _featureBuilder;
     private OrderBookSnapshot _orderBook;
+    private OrderBookDataClass _orderBookDataClass = new(25);
 
     private double _volumeExecuted;
     private double _volumeStd;
@@ -32,54 +37,26 @@ public class StrategyWrapper : IStrategy
     {
         _emulator = emulator;
         _logger = logger.ForContext<StrategyWrapper>();
-        var tradeDateOpenDateTime = new DateTime(_emulator.Hash.Date, _openTime, DateTimeKind.Local);
-        var tradeDateCloseDateTime = new DateTime(_emulator.Hash.Date, _closeTime, DateTimeKind.Local);
-        _tradeDateOpenTimestamp = tradeDateOpenDateTime.ToUnixTimeMilliseconds();
-        _tradeDateCloseTimestamp = tradeDateCloseDateTime.ToUnixTimeMilliseconds();
-        _simulationStartedTimestamp = Stopwatch.GetTimestamp();
+        var featuresRepository = new FeatureRepository(
+            Environment.GetEnvironmentVariable("PG_CONNECTION_STRING"),
+            "labeled_features",
+            "NG",
+            logger);
+        _featureBuilder = new FeatureBuilder(featuresRepository, logger);
     }
 
     public void OrderBookUpdated(MarketDataItem<OrderBookSnapshot> orderBookSnapshot)
     {
-        if (orderBookSnapshot.Timestamp < _tradeDateOpenTimestamp || orderBookSnapshot.Timestamp > _tradeDateCloseTimestamp)
-            return;
-        _orderBook = orderBookSnapshot.Item;
+        _featureBuilder.OrderBookUpdated(orderBookSnapshot);
+        var features = _orderBookDataClass.Generate(orderBookSnapshot.Item);
+        features.FeaturesTimestamp = orderBookSnapshot.DateTime;
+        _features.AddRange(features);
     }
 
     public unsafe void AnonymousTradeReceived(MarketDataItem<TradeUpdate> trade)
     {
-        _lastPx = trade.Item.Price;
-        if (trade.Timestamp < _tradeDateOpenTimestamp || trade.Timestamp > _tradeDateCloseTimestamp)
-            return;
-        _volumeExecuted += trade.Item.Volume;
-        _trades[_tradesIdx++] = trade.Item;
-        if (_tradesIdx == DATA_DEPTH)
-        {
-            var volumesSpan = stackalloc double[DATA_DEPTH];
-
-            fixed (TradeUpdate* tradesPtr = _trades)
-            {
-                for (var i = 0; i < DATA_DEPTH; i++)
-                {
-                    volumesSpan[i] = tradesPtr[i].Volume;
-                }
-            }
-
-            _volumeStd = StandardDeviation(volumesSpan, DATA_DEPTH);
-            _volumeEwma = Ewma(volumesSpan, DATA_DEPTH, 0.27);
-            _tradesIdx = 0;
-            var isLong = Math.Log10(_volumeStd).IsGreater(Math.Log10(_volumeEwma));
-            var order = new UserOrder
-            {
-                Price = isLong ? _orderBook.Asks[0].Price : _orderBook.Bids[0].Price,
-                Quantity = 2,
-                Timestamp = Helpers.Timestamp,
-                Side = isLong ? Side.Long : Side.Short,
-                ClientOrderId = Guid.NewGuid(),
-                Id = Helpers.NextId
-            };
-            PlaceOrder(order);
-        }
+        _featureBuilder.AnonymousTradeReceived(trade);
+        _allTrades.Add(trade);
     }
 
     public void UserExecutionReceived(UserExecution userExecution)
@@ -95,64 +72,16 @@ public class StrategyWrapper : IStrategy
 
     public void SimulationFinished()
     {
-        var remainedLimit = _userExecutions
-            .Sum(execution => execution.ExecutedQuantity * (int)execution.Side);
-
-        var value = remainedLimit * _lastPx;
-
-        var total = _userExecutions
-            .Sum(execution => execution.ExecutionPrice * execution.ExecutedQuantity * (int)execution.Side);
-
-        var executedVolume = _userExecutions.Sum(execution => execution.ExecutionPrice * execution.ExecutedQuantity);
-        var dirtyPnl = value - total;
-        var brokerFee = executedVolume * 0.00025;
-        var cleanPnl = dirtyPnl - brokerFee;
-        var elapsedTime = Stopwatch.GetElapsedTime(_simulationStartedTimestamp);
-
-        _logger.Information(
-            "Trade date: {TradeDate} Strategy finished. Total trades: {TradesCount}, PnL: {Pnl} (Broker Fee: {Fee} | Volume: {Volume}) Duration: {Duration}",
-            _emulator.Hash.Date,
-            _userExecutions.Count,
-            cleanPnl,
-            brokerFee,
-            executedVolume,
-            elapsedTime);
+        TrainModel();
     }
 
-    private static unsafe double StandardDeviation(double* dataPtr, int size)
+    private void TrainModel()
     {
-        if (size == 0)
-            throw new ArgumentException("Data cannot be empty.");
+        // var tradesRepository = new TradeRepository(Environment.GetEnvironmentVariable("PG_CONNECTION_STRING"), _logger);
+        // tradesRepository.BulkInsertTrades(_allTrades, "trades", "NG");
 
-        double sum = 0;
-        double sumSquared = 0;
-
-        // Calculate the sum of the values
-        for (var i = 0; i < size; i++)
-        {
-            sum += dataPtr[i];
-            sumSquared += dataPtr[i] * dataPtr[i];
-        }
-
-        var mean = sum / size;
-        var variance = sumSquared / size - mean * mean;
-        return Math.Sqrt(variance);
-    }
-
-    private static unsafe double Ewma(double* dataPtr, int size, double alpha)
-    {
-        if (size == 0)
-            throw new ArgumentException("Data cannot be empty.");
-
-        if (alpha is <= 0 or >= 1)
-            throw new ArgumentException("Alpha must be between 0 and 1 exclusive.");
-
-        var ewma = dataPtr[0]; // Initial value
-        for (var i = 1; i < size; i++)
-        {
-            ewma = alpha * dataPtr[i] + (1 - alpha) * ewma;
-        }
-
-        return ewma;
+        _featureBuilder.FlushRemaining();
+        _featureBuilder.SaveFeaturesToPostgreSQL(Environment.GetEnvironmentVariable("PG_CONNECTION_STRING"), "labeled_features", "NG");
+        _logger.Information("Features were built and saved to DB for {Hash}", _emulator.Hash);
     }
 }

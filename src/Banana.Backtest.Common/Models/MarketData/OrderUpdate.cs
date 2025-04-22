@@ -17,6 +17,7 @@ public struct OrderUpdate
 
     public override string ToString()
     {
-        return $"[{DateTimeOffset.FromUnixTimeMilliseconds(Timestamp):O}] {Type}: {Side} {Price}x{Quantity}";
+        return $"{Type}: {Side} {Price}x{Quantity}";
+        // return $"[{DateTimeOffset.FromUnixTimeMilliseconds(Timestamp):O}] {Type}: {Side} {Price}x{Quantity}";
     }
 }

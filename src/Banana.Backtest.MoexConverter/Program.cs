@@ -12,6 +12,11 @@ settingsParseResult.WithParsed(settings =>
 {
     ArgumentException.ThrowIfNullOrWhiteSpace(settings.OutputDirectoryPath);
     var converter = new SourceDataConverter(settings, logger);
+    if (settings.IsDirectoryScanMode)
+    {
+        converter.FindAndConvertFromDirectory();
+        return;
+    }
     if (settings.IsTradesParsingRequested)
         converter.ConvertTrades();
     if (settings.IsOrdersParsingRequested)

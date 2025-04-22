@@ -1,4 +1,7 @@
-﻿namespace Banana.Backtest.Common.Extensions;
+﻿using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
+
+namespace Banana.Backtest.Common.Extensions;
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -11,6 +14,8 @@ public static class Helpers
     public static long NextId => Interlocked.Increment(ref _orderId);
 
     public static long Timestamp => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+    private static ConcurrentDictionary<Type, string> _typeNameCache = new();
 
     public static DateTime AsDateTime(this long unixTimeMilliseconds)
     {
@@ -94,5 +99,22 @@ public static class Helpers
         }
 
         return read;
+    }
+
+    public static string FriendlyTypeName<T>()
+    {
+        var type = typeof(T);
+        return _typeNameCache.GetOrAdd(type, NameForGenericType);
+    }
+
+    private static string NameForGenericType(Type type)
+    {
+        if (!type.IsGenericType)
+            return type.Name;
+
+        var args = type.GetGenericArguments().Select(NameForGenericType).ToArray();
+        var cleanName = Regex.Replace(type.Name, "`\\d+", string.Empty, RegexOptions.Compiled);
+
+        return $"{cleanName}<{string.Join(',', args)}>";
     }
 }

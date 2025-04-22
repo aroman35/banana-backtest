@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Banana.Backtest.Common.Extensions;
 using Banana.Backtest.Common.Models.MarketData;
 
@@ -19,13 +20,21 @@ public class OrderBook
 
     // Lists to store the levels for bids and asks
     private readonly SortedDictionary<double, OrderBookLevel> _bids = new(Comparer<double>.Create((x, y) => y.CompareTo(x)));
+
     private readonly SortedDictionary<double, OrderBookLevel> _asks = new();
     private long _timestamp;
 
-    public OrderBookLevel BestBid => _bids.FirstOrDefault().Value;
-    public OrderBookLevel BestAsk => _asks.FirstOrDefault().Value;
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public OrderBookLevel BestOffer(Side side) => side is Side.Long ? BestAsk() : BestBid();
+
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public OrderBookLevel BestBid() => _bids.FirstOrDefault().Value;
+
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public OrderBookLevel BestAsk() => _asks.FirstOrDefault().Value;
+
     public bool IsReady => _bids.Count > 0 && _asks.Count > 0;
-    public bool IsConsistent => BestBid.Price.IsLower(BestAsk.Price);
+    public bool IsConsistent => BestBid().Price.IsLower(BestAsk().Price);
     public DateTime Timestamp => _timestamp.AsDateTime();
     public SortedDictionary<double, OrderBookLevel> Bids => _bids;
     public SortedDictionary<double, OrderBookLevel> Ask => _asks;
@@ -33,6 +42,11 @@ public class OrderBook
     // Method to handle an update to the order book
     public void UpdateOrder(MarketDataItem<LevelUpdate> levelUpdate)
     {
+        if (levelUpdate.Item.Price.IsEquals(0.0D))
+        {
+            RemoveOrder(levelUpdate.Item.IsBid, levelUpdate.Item.Quantity);
+            return;
+        }
         if (levelUpdate.Item.Quantity == 0)
         {
             // Remove the level if quantity is zero (means no orders left at that price)
@@ -47,6 +61,7 @@ public class OrderBook
         _timestamp = levelUpdate.Timestamp;
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     private void AddOrUpdateOrder(bool isBid, double price, double quantity)
     {
         var bookSide = isBid ? _bids : _asks;
@@ -63,6 +78,7 @@ public class OrderBook
         }
     }
 
+    [MethodImpl(MethodImplOptions.Synchronized)]
     private void RemoveOrder(bool isBid, double price)
     {
         var bookSide = isBid ? _bids : _asks;
@@ -71,10 +87,12 @@ public class OrderBook
 
     public override string ToString()
     {
-        return $"[{Timestamp.ToLocalTime():O}]Bid: {BestBid.Price}x{BestBid.Quantity}, Ask: {BestAsk.Price}x{BestAsk.Quantity}";
+        return
+            $"[{Timestamp.ToLocalTime():O}]Bid: {BestBid().Price}x{BestBid().Quantity}, Ask: {BestAsk().Price}x{BestAsk().Quantity}";
     }
 
-    public OrderBookSnapshot TakeSnapshot()
+    [MethodImpl(MethodImplOptions.Synchronized)]
+    public unsafe OrderBookSnapshot TakeSnapshot()
     {
         using var bidsEnumerator = Bids.GetEnumerator();
         using var asksEnumerator = Ask.GetEnumerator();
@@ -82,19 +100,18 @@ public class OrderBook
         var snapshot = new OrderBookSnapshot
         {
             Timestamp = _timestamp,
-            Asks = new OrderBookLevels20(),
-            Bids = new OrderBookLevels20()
         };
 
         var asksFinished = false;
         var bidsFinished = false;
 
-        for (var i = 0; i < 20; i++)
+        for (var i = 0; i < OrderBookSnapshot.Depth; i++)
         {
             if (!bidsFinished && bidsEnumerator.MoveNext())
             {
                 var bid = bidsEnumerator.Current;
-                snapshot.Bids[i] = bid.Value;
+                snapshot.BidPrices[i] = bid.Value.Price;
+                snapshot.BidQuantities[i] = bid.Value.Quantity;
             }
             else
             {
@@ -104,7 +121,8 @@ public class OrderBook
             if (!asksFinished && asksEnumerator.MoveNext())
             {
                 var ask = asksEnumerator.Current;
-                snapshot.Asks[i] = ask.Value;
+                snapshot.AskPrices[i] = ask.Value.Price;
+                snapshot.AskQuantities[i] = ask.Value.Quantity;
             }
             else
             {
@@ -116,16 +134,94 @@ public class OrderBook
     }
 }
 
-public struct OrderBookSnapshot
+public unsafe struct OrderBookSnapshot
 {
-    public OrderBookLevels20 Bids;
-    public OrderBookLevels20 Asks;
-    public long Timestamp;
-    public double MidPrice => (Bids[0].Price + Asks[0].Price) / 2;
-}
+    public const int Depth = 50;
 
-[System.Runtime.CompilerServices.InlineArray(20)]
-public struct OrderBookLevels20
-{
-    private OrderBook.OrderBookLevel _bestValue;
+    public fixed double BidPrices[Depth];
+    public fixed double BidQuantities[Depth];
+    public fixed double AskPrices[Depth];
+    public fixed double AskQuantities[Depth];
+
+    /// <summary>
+    /// Получение уровня из предложений на продажу
+    /// </summary>
+    /// <param name="level">Номер уровня. Считаются с 1</param>
+    public OrderBook.OrderBookLevel Bid(int level) => new(BidPrices[level], BidQuantities[level]);
+
+    /// <summary>
+    /// Получение уровня из предложений на покупку
+    /// </summary>
+    /// <param name="level">Номер уровня. Считаются с 1</param>
+    public OrderBook.OrderBookLevel Ask(int level) => new(AskPrices[level], AskQuantities[level]);
+
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void FillBids(Span<OrderBook.OrderBookLevel> bids, int length)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(length, Depth);
+
+        fixed (OrderBook.OrderBookLevel* bidsPtr = bids)
+        {
+            for (var i = 0; i < length; i++)
+            {
+                var price = BidPrices[i];
+                var quantity = BidQuantities[i];
+                bidsPtr[i] = new OrderBook.OrderBookLevel(price, quantity);
+            }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void FillAsks(Span<OrderBook.OrderBookLevel> asks, int length)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(length, Depth);
+
+        fixed (OrderBook.OrderBookLevel* asksPtr = asks)
+        {
+            for (var i = 0; i < length; i++)
+            {
+                var price = AskPrices[i];
+                var quantity = AskQuantities[i];
+                asksPtr[i] = new OrderBook.OrderBookLevel(price, quantity);
+            }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IEnumerable<OrderBook.OrderBookLevel> Bids()
+    {
+        for (var i = 0; i < Depth; i++)
+        {
+            double quantity;
+            double price;
+            unsafe
+            {
+                price = BidPrices[i];
+                quantity = BidQuantities[i];
+            }
+
+            yield return new OrderBook.OrderBookLevel(price, quantity);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IEnumerable<OrderBook.OrderBookLevel> Asks()
+    {
+        for (var i = 0; i < Depth; i++)
+        {
+            double quantity;
+            double price;
+            unsafe
+            {
+                price = AskPrices[i];
+                quantity = AskQuantities[i];
+            }
+
+            yield return new OrderBook.OrderBookLevel(price, quantity);
+        }
+    }
+
+    public long Timestamp;
+    public double MidPrice => (BidPrices[0] + AskPrices[0]) / 2;
 }

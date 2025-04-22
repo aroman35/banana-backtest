@@ -41,7 +41,6 @@ public class ExchangeConverterJob(
                 .GetCompleteMetaForSymbol(groupBySymbol.Key)
                 .ToHashSetAsync(cancellationToken: cancellationToken);
 
-            var instrumentInfo = instruments[groupBySymbol.Key];
             foreach (var hash in groupBySymbol.Except(cataloguedHashes))
             {
                 var levelUpdatesHash = hash.For(FeedType.LevelUpdates);

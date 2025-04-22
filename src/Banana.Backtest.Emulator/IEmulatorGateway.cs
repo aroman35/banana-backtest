@@ -1,6 +1,6 @@
 ﻿using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.MarketData;
-using Banana.Backtest.Emulator.ExchangeEmulator;
+using Banana.Backtest.Emulator.Contracts;
 
 namespace Banana.Backtest.Emulator;
 
