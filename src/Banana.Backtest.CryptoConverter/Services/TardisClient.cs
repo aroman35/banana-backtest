@@ -41,7 +41,7 @@ public class TardisClient(
         var response = await httpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
         var instruments = response.Content
-            .ReadFromJsonAsAsyncEnumerable<TardisContract>(cancellationToken: cancellationToken)
+            .ReadFromJsonAsAsyncEnumerable<TardisInstrumentInfo>(cancellationToken: cancellationToken)
             .Where(instrument => instrument is { Active: true, BaseCurrency.Length: <= 8, QuoteCurrency.Length: <= 8 })
             .OrderByDescending(x => x?.AvailableSince);
 

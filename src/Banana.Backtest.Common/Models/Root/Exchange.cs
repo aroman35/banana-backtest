@@ -5,15 +5,15 @@ namespace Banana.Backtest.Common.Models.Root;
 [Flags]
 public enum Exchange : ulong
 {
-    None = 0b_0000_0000_0000_0000,
-    Spot = 0b_0000_0000_0000_0001,
-    Futures = 0b_0000_0000_0000_0010,
-    Currency = 0b_0000_0000_0000_0100,
-    Swap = 0b_0000_0000_0000_1000,
-    Binance = 0b_0000_0000_0001_0000,
-    Okex = 0b_0000_0000_0010_0000,
-    Moex = 0b_0000_0000_0100_0000,
-    Kucoin = 0b_0000_0000_1000_0000,
+    None = 0,
+    Spot = 1 << 0,
+    Futures = 1 << 1,
+    Currency = 1 << 2,
+    Swap = 1 << 3,
+    Binance = 1 << 4,
+    Okex = 1 << 5,
+    Moex = 1 << 6,
+    Kucoin = 1 << 7,
 
     MoexFutures = Moex | Futures,
     MoexSpot = Moex | Spot,
@@ -36,6 +36,6 @@ public enum Exchange : ulong
     [Description("kucoin-futures")]
     KucoinFutures = Kucoin | Futures,
 
-    Crypto = Binance | Okex,
+    Crypto = Binance | Okex | Kucoin,
     Classic = Moex,
 }

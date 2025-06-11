@@ -10,6 +10,8 @@
         <ContainerWorkingDirectory>/bin</ContainerWorkingDirectory>
         <ContainerRepository>banana-crypto-converter</ContainerRepository>
         <CodeAnalysisRuleSet>./../StyleCop.Analyzers.ruleset</CodeAnalysisRuleSet>
+        <Configurations>Debug;Release;WindowsService</Configurations>
+        <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
 
     <ItemGroup>
@@ -17,13 +19,14 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="FastEndpoints" Version="5.31.0" />
-        <PackageReference Include="FastEndpoints.Swagger" Version="5.31.0" />
+        <PackageReference Include="FastEndpoints" Version="6.0.0" />
+        <PackageReference Include="FastEndpoints.Swagger" Version="6.0.0" />
         <PackageReference Include="Flurl.Http" Version="4.0.2"/>
-        <PackageReference Include="Hangfire" Version="1.8.15" />
+        <PackageReference Include="Hangfire" Version="1.8.18" />
+        <PackageReference Include="Hangfire.Mongo" Version="1.11.5" />
         <PackageReference Include="Hangfire.Prometheus.NetCore" Version="1.0.50"/>
-        <PackageReference Include="Hangfire.Redis.StackExchange" Version="1.9.4" />
-        <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.5" />
+        <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.4.0" />
         <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.9.0-beta.2"/>
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.10.0" />
         <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.9.0"/>
@@ -35,6 +38,7 @@
         <PackageReference Include="Serilog.Sinks.Async" Version="2.1.0" />
         <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
         <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+        <PackageReference Include="Elastic.Serilog.Sinks" Version="8.12.3" />
         <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

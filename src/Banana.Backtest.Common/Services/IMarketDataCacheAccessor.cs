@@ -8,6 +8,7 @@ public interface IMarketDataCacheAccessor : IDisposable
     bool IsEmpty { get; }
     long ItemsCount { get; }
     MarketDataHash Hash { get; }
+    MarketDataCacheMeta Meta { get; }
 }
 
 public interface IMarketDataCacheWriter<TMarketDataType> : IMarketDataCacheAccessor

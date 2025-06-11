@@ -8,8 +8,8 @@ using Microsoft.Extensions.Options;
 namespace Banana.Backtest.CryptoConverter.Scheduler.Jobs;
 
 public class ExchangeConverterJob(
-    CatalogRepository catalog,
-    IBackgroundJobClient backgroundJobClient,
+    CatalogRepository catalogRepository,
+    IBackgroundJobClientV2 backgroundJobClient,
     IOptionsSnapshot<ConverterOptions> converterOptions)
 {
     public async Task HandleAsync(RunAllInstrumentsHandlingCommand command, CancellationToken cancellationToken = default)
@@ -20,7 +20,7 @@ public class ExchangeConverterJob(
         var datesCount = endDate.DayNumber - startDate.DayNumber;
         var daysRange = Enumerable.Range(0, datesCount + 1).Select(x => startDate.AddDays(x));
 
-        var instruments = await catalog
+        var instruments = await catalogRepository
             .GetInstruments(command.Exchange)
             .ToDictionaryAsync(x => x.Symbol, x => x, cancellationToken: cancellationToken);
 
@@ -37,7 +37,7 @@ public class ExchangeConverterJob(
 
         foreach (var groupBySymbol in allHashesBySymbol)
         {
-            var cataloguedHashes = await catalog
+            var cataloguedHashes = await catalogRepository
                 .GetCompleteMetaForSymbol(groupBySymbol.Key)
                 .ToHashSetAsync(cancellationToken: cancellationToken);
 

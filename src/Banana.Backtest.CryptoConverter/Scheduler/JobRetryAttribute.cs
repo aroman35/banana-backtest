@@ -28,7 +28,7 @@ public class JobRetryAttribute : JobFilterAttribute, IElectStateFilter, IApplySt
 
     private readonly ILog _logger = LogProvider.For<AutomaticRetryAttribute>();
 
-    private readonly object _lockObject = new();
+    private readonly Lock _lockObject = new();
     private int _attempts;
     private int[]? _delaysInSeconds;
     private Func<long, int>? _delayInSecondsByAttemptFunc;

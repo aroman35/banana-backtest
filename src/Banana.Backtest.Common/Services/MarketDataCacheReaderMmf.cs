@@ -46,10 +46,10 @@ public unsafe class MarketDataCacheReaderMmf<TMarketDataType> : IMarketDataCache
             MemoryMappedFileAccess.Read);
 
         _readerPointer = (byte*)_memoryMappedViewAccessor.SafeMemoryMappedViewHandle.DangerousGetHandle().ToPointer();
-        var meta = ExtractMeta();
-        if (meta.CompressionType is not CompressionType.NoCompression)
+        Meta = ExtractMeta();
+        if (Meta.CompressionType is not CompressionType.NoCompression)
             throw new NotSupportedException("It is only possible to read files with no compression using MMF.");
-        ItemsCount = meta.ItemsCount;
+        ItemsCount = Meta.ItemsCount;
         IsEmpty = ItemsCount == 0;
         ReadNextItem(out _next);
     }
@@ -57,6 +57,7 @@ public unsafe class MarketDataCacheReaderMmf<TMarketDataType> : IMarketDataCache
     public bool IsEmpty { get; }
     public long ItemsCount { get; }
     public MarketDataHash Hash { get; }
+    public MarketDataCacheMeta Meta { get; }
 
     public IEnumerable<MarketDataItem<TMarketDataType>> ContinueReadUntil(long? timestamp = null)
     {

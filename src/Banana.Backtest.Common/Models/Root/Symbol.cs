@@ -45,7 +45,7 @@ public struct Symbol : IEquatable<Symbol>
 
     public Exchange Exchange => _exchange;
 
-    public bool IsCrypto => (Exchange.Crypto & _exchange) == _exchange;
+    public bool IsCrypto => (Exchange.Crypto & _exchange) != 0;
 
     public static Symbol Parse(string ticker, string classCode, Exchange exchange)
     {

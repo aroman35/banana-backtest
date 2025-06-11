@@ -23,6 +23,28 @@
                 "theme": "Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme::Code, Serilog.Sinks.Console",
                 "outputTemplate": "{Timestamp:HH:mm:ss.ffffff}|{Level:u3}|{Message:lj}<:s{SourceContext}{NewLine}{Exception}"
               }
+            },
+            {
+              "Name": "File",
+              "Args": {
+                "path": "D:/logs/log_.log",
+                "rollingInterval": "Day"
+              }
+            },
+            {
+              "Name": "Elasticsearch",
+              "Args": {
+                "bootstrapMethod": "Failure",
+                "nodes": ["http://192.168.88.213:9200"],
+                "username": "elastic",
+                "password": "Z10n0101",
+                "includeHost": false,
+                "includeActivity": false,
+                "includeProcess": false,
+                "includeUser": false,
+                "dataStream": "logs-converter-crypto",
+                "restrictedToMinimumLevel": "Debug"
+              }
             }
           ]
         }
@@ -36,8 +58,8 @@
     "HandlerLifetime": "01:00:00",
     "RateLimiter": {
       "DefaultRateLimiterOptions": {
-        "PermitLimit": 64,
-        "QueueLimit": 256,
+        "PermitLimit": 32,
+        "QueueLimit": 128,
         "QueueProcessingOrder": "OldestFirst"
       }
     },
@@ -62,7 +84,7 @@
     "RefreshInstrumentsScheduleCrone": "1 21 * * *",
     "DownloadScheduleCrone": "10 21 * * *",
     "Term": "-1",
-    "HistoryDepth": "2024-06-01",
+    "HistoryDepth": "2024-01-01",
     "WorkersCount": 16,
     "MaxDegreeOfParallelismForSchedulers": 2,
     "ServerName": "banana-crypto-converter",
@@ -72,6 +94,8 @@
       "KucoinFutures"
     ],
     "Queues": [
+      "instrumetsrefresh",
+      "convertexchange",
       "trades",
       "levelupdates",
       "instrumetsrefresh",
@@ -79,18 +103,18 @@
     ]
   },
   "MarketDataParserOptions": {
-    "OutputDirectory": "/tmp/market-data",
+    "OutputDirectory": "D:/market-data-storage",
     "CompressionType": "Brotli",
     "CompressionLevel": "Optimal"
   },
   "RedisOptions": {
-    "ConnectionString": "localhost:26379,localhost:26380,localhost:26381",
+    "ConnectionString": "192.168.88.213:26379,192.168.88.213:26380,192.168.88.213:26381",
     "ServiceName": "banana-cluster",
     "AbortOnConnectionFail": false,
     "ConnectTimeout": 15000,
-    "SchedulerDatabase": 2,
-    "CatalogDatabase": 3,
-    "Password": "",
+    "SchedulerDatabase": 0,
+    "CatalogDatabase": 1,
+    "Password": "Z10n0101N#",
     "KeyPrefix": "banana.converter."
   }
 }

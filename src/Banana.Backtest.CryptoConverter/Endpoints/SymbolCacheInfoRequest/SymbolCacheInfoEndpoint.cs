@@ -5,7 +5,7 @@ using FastEndpoints;
 
 namespace Banana.Backtest.CryptoConverter.Endpoints.SymbolCacheInfoRequest;
 
-public class SymbolCacheInfoEndpoint(CatalogRepository catalogRepository) : Endpoint<SymbolCacheInfoQuery, SymbolCacheInfoResponse>
+public class SymbolCacheInfoEndpoint(CatalogRepository catalogRepositoryRepository) : Endpoint<SymbolCacheInfoQuery, SymbolCacheInfoResponse>
 {
     public override void Configure()
     {
@@ -17,7 +17,7 @@ public class SymbolCacheInfoEndpoint(CatalogRepository catalogRepository) : Endp
     {
         var symbol = Symbol.Parse(request.Symbol);
 
-        var hashes = await catalogRepository
+        var hashes = await catalogRepositoryRepository
             .GetCompleteMetaForSymbol(symbol)
             .OrderByDescending(x => x.Date)
             .ToArrayAsync(cancellationToken: cancellationToken);

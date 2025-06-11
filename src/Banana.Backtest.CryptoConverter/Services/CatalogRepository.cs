@@ -1,121 +1,223 @@
-﻿using System.Buffers;
-using System.Runtime.CompilerServices;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+﻿using System.IO.Compression;
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.Root;
-using Banana.Backtest.CryptoConverter.Converters;
 using Banana.Backtest.CryptoConverter.Options;
 using Banana.Backtest.CryptoConverter.Services.Models.Tardis;
 using Microsoft.Extensions.Options;
-using Polly;
-using Polly.Retry;
-using StackExchange.Redis;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Serializers;
+using MongoDB.Driver;
+using Serilog.Events;
+using Version = Banana.Backtest.Common.Models.Version;
 
 namespace Banana.Backtest.CryptoConverter.Services;
 
-public class CatalogRepository(IConnectionMultiplexer connectionMultiplexer, IOptions<RedisOptions> options, ILogger logger)
+public class CatalogRepository
 {
-    private readonly IDatabase _database = connectionMultiplexer.GetDatabase(options.Value.CatalogDatabase);
-    private readonly ILogger _logger = logger.ForContext<CatalogRepository>();
-    private readonly AsyncRetryPolicy _redisInsertRetryPolicy = Policy.Handle<Exception>()
-        .WaitAndRetryAsync(5, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
-    private readonly JsonSerializerOptions _jsonSerializerOptions = new()
+    private readonly IMongoDatabase _database;
+    private readonly ILogger _logger;
+    private IMongoCollection<MarketDataCacheMetaPersistentModel> MetaCollection => _database.GetCollection<MarketDataCacheMetaPersistentModel>("cache-meta");
+    private IMongoCollection<InstrumentInfo> InstrumentsCollection => _database.GetCollection<InstrumentInfo>("instruments");
+
+    public CatalogRepository(IMongoClient mongoClient, IOptions<MongoOptions> options, ILogger logger)
     {
-        Converters =
+        _logger = logger.ForContext<CatalogRepository>();
+        _database = mongoClient.GetDatabase(options.Value.DatabaseName);
+        BsonSerializer.RegisterSerializer(SymbolSerializer.Instance);
+        BsonSerializer.RegisterSerializer(VersionSerializer.Instance);
+        BsonSerializer.RegisterSerializer(new EnumSerializer<CompressionType>(BsonType.String));
+        BsonSerializer.RegisterSerializer(new EnumSerializer<CompressionLevel>(BsonType.String));
+        BsonSerializer.RegisterSerializer(new EnumSerializer<FeedType>(BsonType.String));
+        BsonClassMap.RegisterClassMap<MarketDataHash>(map =>
         {
-            new JsonStringEnumConverter(),
-            SymbolSystemTextJsonConverter.Instance
-        }
-    };
-
-    public async IAsyncEnumerable<MarketDataHash> GetCompleteMetaForSymbol(Symbol symbol)
-    {
-        var levelUpdatesHashes = await _database.SetMembersAsync(MarketDataHashKey(symbol, FeedType.LevelUpdates));
-        var tradesHashes = await _database.SetMembersAsync(MarketDataHashKey(symbol, FeedType.Trades));
-
-        foreach (var entry in levelUpdatesHashes)
+            map.AutoMap();
+        });
+        BsonClassMap.RegisterClassMap<MarketDataCacheMetaPersistentModel>(map =>
         {
-            var hash = ByteArrayToMeta(entry);
-            yield return hash;
-        }
-
-        foreach (var entry in tradesHashes)
+            map.AutoMap();
+        });
+        BsonClassMap.RegisterClassMap<InstrumentInfo>(map =>
         {
-            var hash = ByteArrayToMeta(entry);
-            yield return hash;
-        }
+            map.AutoMap();
+            map.MapIdProperty(x => x.Symbol);
+        });
+        MetaCollection.Indexes.CreateOne(new CreateIndexModel<MarketDataCacheMetaPersistentModel>(
+            Builders<MarketDataCacheMetaPersistentModel>.IndexKeys
+                .Ascending(x => x.Hash.Symbol)
+                .Ascending(x => x.Hash.Date)
+                .Ascending(x => x.Hash.Feed),
+            new CreateIndexOptions
+            {
+                Unique = true,
+                Background = true
+            }
+        ));
     }
 
-    public async Task BuildComplete(MarketDataHash hash)
+    public async Task UpdateInstruments(IEnumerable<InstrumentInfo> instruments)
     {
-        var hashSetKey = MarketDataHashKey(hash.Symbol, hash.Feed);
-        var value = MetaToRedisValue(hash);
-
-        var insertResult = await _redisInsertRetryPolicy.ExecuteAndCaptureAsync(() =>
-            _database.SetAddAsync(hashSetKey, value));
-        if (insertResult.Outcome == OutcomeType.Failure)
-            _logger.Error(insertResult.FinalException, "Error while building catalog data for {Hash}", hash);
-    }
-
-    public async Task UpdateInstruments(Exchange exchange, IEnumerable<InstrumentInfo> instruments)
-    {
-        var hashEntries = instruments
-            .Where(x => x.Symbol.Exchange == exchange)
-            .Select(x => new HashEntry(x.Symbol.ToString(), JsonSerializer.Serialize(x, _jsonSerializerOptions)))
-            .ToArray();
-        await _database.HashSetAsync(InstrumentsKey(exchange), hashEntries);
+        var updateModels = instruments
+            .Select(instrument =>
+            {
+                var request = new ReplaceOneModel<InstrumentInfo>(
+                    Builders<InstrumentInfo>.Filter.Eq(x => x.Symbol, instrument.Symbol),
+                    instrument)
+                {
+                    IsUpsert = true
+                };
+                return request;
+            });
+        var result = await InstrumentsCollection.BulkWriteAsync(updateModels);
+        if (result.IsAcknowledged)
+            _logger.Debug("Updated instruments catalog with {Count} items", result.ModifiedCount);
     }
 
     public async IAsyncEnumerable<InstrumentInfo> GetInstruments(Exchange exchange)
     {
-        var key = InstrumentsKey(exchange);
-        var allInstrumentsKeys = await _database.HashGetAllAsync(key);
-        foreach (var hashEntry in allInstrumentsKeys)
+        using var cursor = await InstrumentsCollection.FindAsync(Builders<InstrumentInfo>.Filter.Empty);
+        while (await cursor.MoveNextAsync())
         {
-            if (!hashEntry.Value.HasValue)
-                continue;
-            var instrumentInfo = JsonSerializer.Deserialize<InstrumentInfo>(hashEntry.Value!, _jsonSerializerOptions);
-            if (instrumentInfo is not null)
-                yield return instrumentInfo;
+            foreach (var instrumentInfo in cursor.Current)
+            {
+                if (instrumentInfo.Symbol.Exchange == exchange)
+                    yield return instrumentInfo;
+            }
         }
     }
 
     public async Task<InstrumentInfo?> GetInstrument(Symbol symbol)
     {
-        var key = InstrumentsKey(symbol.Exchange);
-        var hash = new RedisValue(symbol.ToString());
-        var result = await _database.HashGetAsync(key, hash);
-        if (result.HasValue)
-        {
-            var instrumentInfo = JsonSerializer.Deserialize<InstrumentInfo>(
-                result.ToString(),
-                _jsonSerializerOptions);
-            return instrumentInfo;
-        }
-        return default;
+        var filter = Builders<InstrumentInfo>.Filter.Eq(x => x.Symbol, symbol);
+        var instrument = await InstrumentsCollection.Find(filter).FirstOrDefaultAsync();
+        return instrument;
     }
 
-    private static unsafe RedisValue MetaToRedisValue(MarketDataHash hash)
+    public async IAsyncEnumerable<MarketDataHash> GetCompleteMetaForSymbol(Symbol symbol)
     {
-        var buffer = MemoryPool<byte>.Shared.Rent(Unsafe.SizeOf<MarketDataHash>());
-        buffer.Memory.Span.Clear();
-        new Span<byte>(&hash, sizeof(MarketDataHash)).CopyTo(buffer.Memory.Span);
-        RedisValue value = buffer.Memory[..Unsafe.SizeOf<MarketDataHash>()];
-        return value;
-    }
-
-    private static unsafe MarketDataHash ByteArrayToMeta(ReadOnlyMemory<byte> metaRaw)
-    {
-        fixed (byte* rawPtr = metaRaw.Span)
+        var filter = Builders<MarketDataCacheMetaPersistentModel>.Filter.Eq(x => x.Hash.Symbol, symbol);
+        using var cursor = await MetaCollection.FindAsync(filter);
+        while (await cursor.MoveNextAsync())
         {
-            return *(MarketDataHash*)rawPtr;
+            foreach (var meta in cursor.Current)
+            {
+                yield return meta.Hash;
+            }
         }
     }
 
-    private RedisKey MarketDataHashKey(Symbol symbol, FeedType feedType) =>
-        new($"{options.Value.KeyPrefix}{symbol.Exchange}.{symbol.Ticker}.{symbol.ClassCode}.{feedType.ToString()}");
+    public async IAsyncEnumerable<MarketDataCacheMeta> GetAllMeta(IEnumerable<Exchange> exchanges)
+    {
+        var exchangeFilter = exchanges.Aggregate((flagsFilter, exchange) => flagsFilter | exchange);
+        var filter = Builders<MarketDataCacheMetaPersistentModel>.Filter.Empty;
+        using var cursor = await MetaCollection.FindAsync(filter);
+        while (await cursor.MoveNextAsync())
+        {
+            foreach (var meta in cursor.Current)
+            {
+                var domainModel = meta.ToDomain();
+                if ((exchangeFilter & domainModel.Hash.Symbol.Exchange) == domainModel.Hash.Symbol.Exchange)
+                    yield return domainModel;
+            }
+        }
+    }
 
-    private RedisKey InstrumentsKey(Exchange exchange) =>
-        new($"{options.Value.KeyPrefix}instruments.{exchange.ToString()}");
+    public async Task BuildComplete(MarketDataCacheMeta hash)
+    {
+        var filter = Builders<MarketDataCacheMetaPersistentModel>.Filter.And(
+            Builders<MarketDataCacheMetaPersistentModel>.Filter.Eq(x => x.Hash.Symbol, hash.Hash.Symbol),
+            Builders<MarketDataCacheMetaPersistentModel>.Filter.Eq(x => x.Hash.Date, hash.Hash.Date),
+            Builders<MarketDataCacheMetaPersistentModel>.Filter.Eq(x => x.Hash.Feed, hash.Hash.Feed)
+            );
+
+        await MetaCollection.FindOneAndDeleteAsync(filter);
+        await MetaCollection.InsertOneAsync(new MarketDataCacheMetaPersistentModel(hash));
+    }
+
+    public class VersionSerializer : SerializerBase<Version>
+    {
+        private static readonly Lock Lock = new();
+
+        private VersionSerializer()
+        {
+        }
+
+        public static VersionSerializer Instance
+        {
+            get
+            {
+                lock (Lock)
+                {
+                    return new VersionSerializer();
+                }
+            }
+        }
+
+        public override void Serialize(BsonSerializationContext context, BsonSerializationArgs args, Version value)
+        {
+            context.Writer.WriteString(value.ToString());
+        }
+
+        public override Version Deserialize(BsonDeserializationContext context, BsonDeserializationArgs args)
+        {
+            var stringValue = context.Reader.ReadString();
+            return Version.Parse(stringValue);
+        }
+    }
+
+    public class SymbolSerializer : SerializerBase<Symbol>
+    {
+        private static readonly Lock Lock = new();
+
+        private SymbolSerializer()
+        {
+        }
+
+        public static SymbolSerializer Instance
+        {
+            get
+            {
+                lock (Lock)
+                {
+                    return new SymbolSerializer();
+                }
+            }
+        }
+
+        public override void Serialize(BsonSerializationContext context, BsonSerializationArgs args, Symbol value)
+        {
+            var stringValue = value.ToString();
+            context.Writer.WriteString(stringValue);
+        }
+
+        public override Symbol Deserialize(BsonDeserializationContext context, BsonDeserializationArgs args)
+        {
+            var stringValue = context.Reader.ReadString();
+            return Symbol.Parse(stringValue);
+        }
+    }
+
+    public struct MarketDataCacheMetaPersistentModel(MarketDataCacheMeta domainModel)
+    {
+        public MarketDataCacheMeta ToDomain()
+        {
+            return new MarketDataCacheMeta
+            {
+                Hash = Hash,
+                CompressionType = CompressionType,
+                CompressionLevel = CompressionLevel,
+                ItemsCount = ItemsCount,
+                BuildTime = BuildTime,
+                Version = Version
+            };
+        }
+
+        public ObjectId Id { get; private set; } = ObjectId.GenerateNewId();
+        public MarketDataHash Hash { get; private set; } = domainModel.Hash;
+        public CompressionType CompressionType { get; private set; } = domainModel.CompressionType;
+        public CompressionLevel CompressionLevel { get; private set; } = domainModel.CompressionLevel;
+        public long ItemsCount { get; private set; } = domainModel.ItemsCount;
+        public DateTime BuildTime { get; private set; } = domainModel.BuildTime;
+        public Version Version { get; private set; } = domainModel.Version;
+    }
 }

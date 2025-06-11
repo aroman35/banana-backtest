@@ -4,8 +4,10 @@ namespace Banana.Backtest.CryptoConverter.Options;
 
 public class ConverterOptions
 {
-    public string DownloadScheduleCrone { get; set; } = null!;
-    public string RefreshInstrumentsScheduleCrone { get; set; } = null!;
+    public string? DownloadScheduleCrone { get; set; }
+    public string? RefreshInstrumentsScheduleCrone { get; set; }
+    public string? ReconciliationScheduleCrone { get; set; }
+    public string? MetaBuildScheduleCrone { get; set; }
     public int Term { get; set; }
     public DateOnly HistoryDepth { get; set; }
     public int WorkersCount { get; set; }

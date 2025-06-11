@@ -25,4 +25,14 @@ public static class MarketDataCacheAccessorProvider
     {
         return new MarketDataCacheAccessor<TMarketDataType>(sourcesDirectory, hash, compressionType, compressionLevel);
     }
+
+    public static MarketDataCacheMeta ReadMeta<TMarketDataType>(
+        string? sourcesDirectory,
+        MarketDataHash hash,
+        bool mmf = false)
+        where TMarketDataType : unmanaged
+    {
+        using var reader = CreateReader<TMarketDataType>(sourcesDirectory, hash, mmf);
+        return reader.Meta;
+    }
 }

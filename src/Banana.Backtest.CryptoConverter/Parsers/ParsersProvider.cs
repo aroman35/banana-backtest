@@ -16,10 +16,21 @@ public class ParsersProvider(
         MarketDataHash hash)
         where TMarketDataType : unmanaged
     {
-        using var scope = scopeFactory.CreateScope();
-        var lineParser = scope.ServiceProvider.GetRequiredService<ILineParser<TMarketDataType>>();
-        using var handler = new TardisParserHandler<TMarketDataType>(options, hash);
-        using var parser = new TardisParser<TMarketDataType>(tardisDecompressionStream, lineParser, handler, hash.Symbol, _logger);
-        parser.ProcessCsvFile();
+        using (var scope = scopeFactory.CreateScope())
+        {
+            var lineParser = scope.ServiceProvider.GetRequiredService<ILineParser<TMarketDataType>>();
+            using (var handler = new TardisParserHandler<TMarketDataType>(options, hash))
+            {
+                using (var parser = new TardisParser<TMarketDataType>(
+                           tardisDecompressionStream,
+                           lineParser,
+                           handler,
+                           hash.Symbol,
+                           _logger))
+                {
+                    parser.ProcessCsvFile();
+                }
+            }
+        }
     }
 }

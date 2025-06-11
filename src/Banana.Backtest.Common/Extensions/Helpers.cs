@@ -1,5 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using Banana.Backtest.Common.Models;
+using Banana.Backtest.Common.Models.Root;
 
 namespace Banana.Backtest.Common.Extensions;
 

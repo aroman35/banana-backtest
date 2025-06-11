@@ -3,7 +3,7 @@ using Banana.Backtest.CryptoConverter.Services;
 
 namespace Banana.Backtest.CryptoConverter.Scheduler.Jobs;
 
-public class RefreshInstrumentsJob(TardisClient tardisClient, CatalogRepository catalog, ILogger logger)
+public class RefreshInstrumentsJob(TardisClient tardisClient, CatalogRepository catalogRepository, ILogger logger)
 {
     private readonly ILogger _logger = logger.ForContext<RefreshInstrumentsJob>();
 
@@ -13,7 +13,7 @@ public class RefreshInstrumentsJob(TardisClient tardisClient, CatalogRepository 
             .GetExchangeInstrumentsAsync(exchange, cancellationToken)
             .ToArrayAsync(cancellationToken: cancellationToken);
 
-        await catalog.UpdateInstruments(exchange, instruments);
+        await catalogRepository.UpdateInstruments(instruments);
         _logger.Information("{Count} instruments refreshed for {Exchange}", instruments.Length, exchange);
     }
 }

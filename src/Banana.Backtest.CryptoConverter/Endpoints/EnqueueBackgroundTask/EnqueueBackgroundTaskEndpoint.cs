@@ -19,12 +19,14 @@ public class EnqueueBackgroundTaskEndpoint(IBackgroundJobClient backgroundJobCli
         if (request.Shift.HasValue)
         {
             backgroundJobClient.Schedule<ExchangeConverterJob>(
+                HangfireDefaults.CONVERT_EXCHANGE_QUEUE,
                 service => service.HandleAsync(Map(request), CancellationToken.None),
                 request.Shift.Value);
         }
         else
         {
             backgroundJobClient.Enqueue<ExchangeConverterJob>(
+                HangfireDefaults.CONVERT_EXCHANGE_QUEUE,
                 service => service.HandleAsync(Map(request), CancellationToken.None));
         }
         return Task.CompletedTask;

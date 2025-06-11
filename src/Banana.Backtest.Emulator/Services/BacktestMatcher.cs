@@ -3,6 +3,7 @@ using System.Threading.Channels;
 using Banana.Backtest.Common.Extensions;
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.MarketData;
+using Banana.Backtest.Common.Models.MPerformance;
 using Banana.Backtest.Emulator.Abstractions;
 using Banana.Backtest.Emulator.Contracts;
 using Banana.Backtest.Emulator.ExchangeEmulator;
@@ -21,7 +22,7 @@ public class BacktestMatcher :
     IChannelSubscriber<PlaceOrderRequest>,
     IChannelSubscriber<CancelOrderRequest>
 {
-    private readonly OrderBook _orderBook = new();
+    private readonly BacktestOrderBook _orderBook = new();
     private readonly TimeProvider _timeProvider;
     private readonly ConcurrentDictionary<Guid, OrderInfo> _userOrdersStorage = new();
 
@@ -279,8 +280,8 @@ public class BacktestMatcher :
 
         _userOrdersStorage[order.ClientOrderId] = order;
         var ordersCollection = order.Side is Side.Long ? _userBids : _userAsks;
-        var orderBookLevelsCollection = order.Side is Side.Long ? _orderBook.Bids : _orderBook.Ask;
-        orderBookLevelsCollection.TryGetValue(order.Price, out var orderBookLevel);
+        var orderBookLevelsCollection = order.Side is Side.Long ? _orderBook.Bids : _orderBook.Asks;
+        orderBookLevelsCollection.TryGetValue(order.Price, out var quantity);
         if (!ordersCollection.TryGetValue(order.Price, out var ordersIndex))
         {
             ordersIndex = [];
@@ -295,8 +296,7 @@ public class BacktestMatcher :
                 IsBid = order.Side is Side.Long,
                 IsSnapshot = false,
                 Price = order.Price,
-                Quantity = orderBookLevel
-                    .Quantity, // + order.RequestedQuantity => объем юзера дозапишется при обновлении уровня
+                Quantity = quantity, // + order.RequestedQuantity => объем юзера дозапишется при обновлении уровня
             }, _timeProvider.GetTimestamp());
             await HandleChannelDataAsync(levelUpdate, cancellationToken);
         }
@@ -319,7 +319,7 @@ public class BacktestMatcher :
                 IsBid = order.Side is Side.Long,
                 IsSnapshot = false,
                 Price = order.Price,
-                Quantity = orderBookLevel.Quantity - replacedQuantity
+                Quantity = quantity - replacedQuantity
             }, _timeProvider.GetTimestamp());
             await HandleChannelDataAsync(levelUpdate, cancellationToken);
         }
@@ -339,7 +339,10 @@ public class BacktestMatcher :
         while (bestOffer.Quantity.IsGreater(0) && order.Status is not OrderStatus.Fill)
         {
             var executedQuantity = Math.Min(order.RemainingQuantity, bestOffer.Quantity);
-            var execution = UserExecution.FillOrder(ref order, bestOffer.Price, executedQuantity,
+            var execution = UserExecution.FillOrder(
+                ref order,
+                bestOffer.Price,
+                executedQuantity,
                 _timeProvider.GetTimestamp());
             await OrderExecuted(order, execution, cancellationToken);
         }

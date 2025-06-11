@@ -14,6 +14,7 @@ public unsafe class MarketDataCacheAccessor<TMarketDataType> : IMarketDataCacheW
                                               $"Feed type is not defined for {typeof(TMarketDataType).Name}. Ensure that {nameof(FeedAttribute)} is set.");
     private readonly FileStream? _sourceFileStream;
     private readonly MarketDataHash _hash;
+    private readonly MarketDataCacheMeta _meta;
     private readonly CompressionType _compressionType;
     private readonly CompressionLevel _compressionLevel;
     private readonly bool _isReader;
@@ -87,16 +88,16 @@ public unsafe class MarketDataCacheAccessor<TMarketDataType> : IMarketDataCacheW
             Options = FileOptions.SequentialScan
         };
         _sourceFileStream = File.Open(filePath, options);
-        var meta = ExtractMeta();
-        if (meta.Hash.Feed != _feed)
-            throw new ArgumentException($"Invalid market data file. Expected {_feed}. Found {meta.Hash.Feed}.");
-        if (meta.Hash.Symbol != hash.Symbol)
+        _meta = ExtractMeta();
+        if (_meta.Hash.Feed != _feed)
+            throw new ArgumentException($"Invalid market data file. Expected {_feed}. Found {_meta.Hash.Feed}.");
+        if (_meta.Hash.Symbol != hash.Symbol)
             throw new AggregateException(
-                $"Invalid market data file. Expected {hash.Symbol.Ticker}. Found {meta.Hash.Symbol.Ticker}.");
+                $"Invalid market data file. Expected {hash.Symbol.Ticker}. Found {_meta.Hash.Symbol.Ticker}.");
 
-        _compressionType = meta.CompressionType;
-        _compressionLevel = meta.CompressionLevel;
-        _itemsCount = meta.ItemsCount;
+        _compressionType = _meta.CompressionType;
+        _compressionLevel = _meta.CompressionLevel;
+        _itemsCount = _meta.ItemsCount;
 
         ResetReader();
     }
@@ -104,6 +105,7 @@ public unsafe class MarketDataCacheAccessor<TMarketDataType> : IMarketDataCacheW
     public bool IsEmpty => _isEmpty;
     public long ItemsCount => _itemsCount;
     public MarketDataHash Hash => _hash;
+    public MarketDataCacheMeta Meta => _meta;
 
     public void Write(MarketDataItem<TMarketDataType> marketDataItem)
     {

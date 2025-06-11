@@ -6,18 +6,6 @@ namespace Banana.Backtest.Common.Models;
 
 public class OrderBook
 {
-    // Represents a single price level in the order book using struct
-    public struct OrderBookLevel(double price, double quantity)
-    {
-        public double Price { get; } = price;
-        public double Quantity { get; } = quantity;
-
-        public OrderBookLevel UpdateQuantity(double newQuantity)
-        {
-            return new OrderBookLevel(Price, newQuantity);
-        }
-    }
-
     // Lists to store the levels for bids and asks
     private readonly SortedDictionary<double, OrderBookLevel> _bids = new(Comparer<double>.Create((x, y) => y.CompareTo(x)));
 
@@ -134,6 +122,17 @@ public class OrderBook
     }
 }
 
+public readonly struct OrderBookLevel(double price, double quantity)
+{
+    public double Price { get; } = price;
+    public double Quantity { get; } = quantity;
+
+    public OrderBookLevel UpdateQuantity(double newQuantity)
+    {
+        return new OrderBookLevel(Price, newQuantity);
+    }
+}
+
 public unsafe struct OrderBookSnapshot
 {
     public const int Depth = 50;
@@ -147,49 +146,49 @@ public unsafe struct OrderBookSnapshot
     /// Получение уровня из предложений на продажу
     /// </summary>
     /// <param name="level">Номер уровня. Считаются с 1</param>
-    public OrderBook.OrderBookLevel Bid(int level) => new(BidPrices[level], BidQuantities[level]);
+    public OrderBookLevel Bid(int level) => new(BidPrices[level], BidQuantities[level]);
 
     /// <summary>
     /// Получение уровня из предложений на покупку
     /// </summary>
     /// <param name="level">Номер уровня. Считаются с 1</param>
-    public OrderBook.OrderBookLevel Ask(int level) => new(AskPrices[level], AskQuantities[level]);
+    public OrderBookLevel Ask(int level) => new(AskPrices[level], AskQuantities[level]);
 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void FillBids(Span<OrderBook.OrderBookLevel> bids, int length)
+    public void FillBids(Span<OrderBookLevel> bids, int length)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(length, Depth);
 
-        fixed (OrderBook.OrderBookLevel* bidsPtr = bids)
+        fixed (OrderBookLevel* bidsPtr = bids)
         {
             for (var i = 0; i < length; i++)
             {
                 var price = BidPrices[i];
                 var quantity = BidQuantities[i];
-                bidsPtr[i] = new OrderBook.OrderBookLevel(price, quantity);
+                bidsPtr[i] = new OrderBookLevel(price, quantity);
             }
         }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void FillAsks(Span<OrderBook.OrderBookLevel> asks, int length)
+    public void FillAsks(Span<OrderBookLevel> asks, int length)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(length, Depth);
 
-        fixed (OrderBook.OrderBookLevel* asksPtr = asks)
+        fixed (OrderBookLevel* asksPtr = asks)
         {
             for (var i = 0; i < length; i++)
             {
                 var price = AskPrices[i];
                 var quantity = AskQuantities[i];
-                asksPtr[i] = new OrderBook.OrderBookLevel(price, quantity);
+                asksPtr[i] = new OrderBookLevel(price, quantity);
             }
         }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IEnumerable<OrderBook.OrderBookLevel> Bids()
+    public IEnumerable<OrderBookLevel> Bids()
     {
         for (var i = 0; i < Depth; i++)
         {
@@ -201,12 +200,12 @@ public unsafe struct OrderBookSnapshot
                 quantity = BidQuantities[i];
             }
 
-            yield return new OrderBook.OrderBookLevel(price, quantity);
+            yield return new OrderBookLevel(price, quantity);
         }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IEnumerable<OrderBook.OrderBookLevel> Asks()
+    public IEnumerable<OrderBookLevel> Asks()
     {
         for (var i = 0; i < Depth; i++)
         {
@@ -218,7 +217,7 @@ public unsafe struct OrderBookSnapshot
                 quantity = AskQuantities[i];
             }
 
-            yield return new OrderBook.OrderBookLevel(price, quantity);
+            yield return new OrderBookLevel(price, quantity);
         }
     }
 

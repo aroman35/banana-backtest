@@ -3,7 +3,7 @@ using Banana.Backtest.CryptoConverter.Extensions;
 
 namespace Banana.Backtest.CryptoConverter.Services.Models.Tardis;
 
-public class TardisContract
+public class TardisInstrumentInfo
 {
     public string? Id { get; set; }
     public string? DatasetId { get; set; }
@@ -23,6 +23,7 @@ public class TardisContract
     public string? ContractType { get; set; } // linear, inverse
     public decimal? ContractMultiplier { get; set; }
     public string? UnderlyingIndex { get; set; }
+    public DateTime Listing { get; set; }
 
     public InstrumentInfo ToInstrumentInfo()
     {
@@ -33,10 +34,26 @@ public class TardisContract
         var symbol = Symbol.Parse(BaseCurrency, QuoteCurrency, Exchange.GetEnumByDescription<Exchange>());
         return new InstrumentInfo
         {
+            Id = Id,
+            Exchange = Exchange,
+            BaseCurrency = BaseCurrency,
+            QuoteCurrency = QuoteCurrency,
+            Type = Type,
+            PriceIncrement = PriceIncrement,
+            AmountIncrement = AmountIncrement,
+            MinTradeAmount = MinTradeAmount,
+            MakerFee = MakerFee,
+            TakerFee = TakerFee,
+            Margin = Margin,
+            Inverse = Inverse,
+            ContractType = ContractType,
+            ContractMultiplier = ContractMultiplier,
+            UnderlyingIndex = UnderlyingIndex,
             DatasetId = DatasetId,
             Symbol = symbol,
             IsActive = Active,
             AvailableSince = DateOnly.FromDateTime(AvailableSince),
+            Listing = DateOnly.FromDateTime(Listing)
         };
     }
 }

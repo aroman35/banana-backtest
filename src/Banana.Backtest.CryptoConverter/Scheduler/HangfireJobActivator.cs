@@ -1,14 +1,18 @@
-﻿using Hangfire;
+﻿using System.Diagnostics;
+using Hangfire;
 using Hangfire.Server;
 
 namespace Banana.Backtest.CryptoConverter.Scheduler;
 
-public class HangfireJobActivator(IServiceScopeFactory serviceScopeFactory, ILogger logger) : JobActivator
+public class HangfireJobActivator(IServiceScopeFactory serviceScopeFactory) : JobActivator
 {
-    private readonly ILogger _logger = logger.ForContext<HangfireJobActivator>();
     public override object ActivateJob(Type jobType)
     {
-        _logger.Warning("Not managed scope were called to the hangfire job activator");
+        Debug.Print(
+            "Not managed scope was called in a case of resolving service '{0}' from DI using a {1}. " +
+            "Ensure the Dispose() method was called on service '{0}'.",
+            jobType.Name,
+            nameof(HangfireJobActivator));
         return new MicrosoftDependencyInjectionJobActivatorScope(serviceScopeFactory.CreateScope()).Resolve(jobType);
     }
 
@@ -27,6 +31,13 @@ public class HangfireJobActivator(IServiceScopeFactory serviceScopeFactory, ILog
 
         public override void DisposeScope()
         {
+            if (serviceScope is IAsyncDisposable asyncDisposable)
+            {
+#pragma warning disable CA2012
+                asyncDisposable.DisposeAsync().GetAwaiter().GetResult();
+#pragma warning restore CA2012
+                return;
+            }
             serviceScope.Dispose();
         }
     }

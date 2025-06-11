@@ -13,15 +13,20 @@ using FastEndpoints.Swagger;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using MongoDB.Driver;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
-using StackExchange.Redis;
 
 CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
 
 var builder = WebApplication.CreateBuilder(args);
+
+#if WINDOWSSERVICE
+builder.Services.AddWindowsService();
+#endif
 
 builder.Configuration.AddEnvironmentVariables();
 builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
@@ -39,29 +44,32 @@ builder.Services
         tracing.AddAspNetCoreInstrumentation();
         tracing.AddHttpClientInstrumentation();
         tracing.AddHangfireInstrumentation();
-        tracing.AddRedisInstrumentation();
     });
 builder.Services.ConfigureOptions<TardisHttpClientOptions>(builder.Configuration);
 builder.Services.ConfigureOptions<ConverterOptions>(builder.Configuration);
 builder.Services.ConfigureOptions<MarketDataParserOptions>(builder.Configuration);
-builder.Services.ConfigureOptions<RedisOptions>(builder.Configuration);
+builder.Services.ConfigureOptions<MongoOptions>(builder.Configuration);
+builder.Services.AddSingleton<DataCopierJobLauncher>();
+builder.Services.AddSingleton<IMongoClient>(provider => new MongoClient(
+    MongoClientSettings.FromConnectionString(provider.GetService<IOptions<MongoOptions>>()?.Value.ConnectionString)));
 
 builder.Services
     .AddHttpClient<TardisClient>()
     .ConfigureHttpClient(builder.Configuration.GetOptions<TardisHttpClientOptions>());
 
-builder.Services.AddSingleton<IConnectionMultiplexer>(provider =>
-    ConnectionMultiplexer.Connect(
-        provider.GetRequiredService<IOptions<RedisOptions>>().Value.ToConfigurationOptions()));
-
 builder.Services.ConfigureHangfire(builder.Configuration);
 
 builder.Services.AddSingleton<ParsersProvider>();
 builder.Services.AddSingleton<CatalogRepository>();
+builder.Services.AddScoped<MetaBuildJobLauncher>();
+builder.Services.AddScoped<ReconciliationJob>();
 builder.Services.AddScoped<RefreshInstrumentsJob>();
 builder.Services.AddScoped<ExchangeConverterJob>();
+builder.Services.AddScoped<DataCopierJob>();
 builder.Services.AddScoped<MarketDataConverterJob<LevelUpdate>>();
 builder.Services.AddScoped<MarketDataConverterJob<TradeUpdate>>();
+builder.Services.AddScoped<MetaBuildJob<LevelUpdate>>();
+builder.Services.AddScoped<MetaBuildJob<TradeUpdate>>();
 builder.Services.AddSingleton<ILineParser<LevelUpdate>, LevelUpdateLineParser>();
 builder.Services.AddSingleton<ILineParser<TradeUpdate>, TradeUpdateLineParser>();
 builder.Services
@@ -79,8 +87,13 @@ builder.Services.AddHealthChecks()
     .AddCheck("Liveness", _ => HealthCheckResult.Healthy(), ["live"])
     .AddCheck("Readiness", _ => HealthCheckResult.Healthy());
 
-builder.Host.UseSerilog((hostContext, loggerBuilder) => loggerBuilder
+builder
+    .Host.UseSerilog((hostContext, loggerBuilder) => loggerBuilder
     .ReadFrom.Configuration(hostContext.Configuration));
+
+#if WINDOWSSERVICE
+builder.WebHost.UseKestrel(kestrel => kestrel.ListenAnyIP(5900));
+#endif
 
 await using var app = builder.Build();
 app.UseHangfireDashboard();
@@ -107,4 +120,5 @@ app.MapHealthChecks("/healthz/live", new HealthCheckOptions
         [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
     }
 });
+
 await app.RunAsync();

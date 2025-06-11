@@ -11,7 +11,10 @@ public static class HangfireDefaults
     public const string TRADES_QUEUE = "trades";
     public const string LEVEL_UPDATES_QUEUE = "levelupdates";
     public const string INSTRUMENTS_REFRESH_QUEUE = "instrumetsrefresh";
+    public const string RECONCILIATION_QUEUE = "reconciliation";
     public const string CONVERT_EXCHANGE_QUEUE = "convertexchange";
+    public const string DATA_MIGRATION_QUEUE = "migration";
+    public const string META_BUILD_QUEUE = "metabuild";
 
     public static readonly JsonSerializerSettings JsonSerializerSettings = new()
     {

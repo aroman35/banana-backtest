@@ -15,8 +15,8 @@ public class OrderBookDataClass(int windowSize)
         var features = new FeaturesClass();
         features.PeriodMs = _timestamp == 0 ? 0 : snapshot.Timestamp - _timestamp;
         _timestamp = snapshot.Timestamp;
-        Span<OrderBook.OrderBookLevel> bids = stackalloc OrderBook.OrderBookLevel[4];
-        Span<OrderBook.OrderBookLevel> asks = stackalloc OrderBook.OrderBookLevel[4];
+        Span<OrderBookLevel> bids = stackalloc OrderBookLevel[4];
+        Span<OrderBookLevel> asks = stackalloc OrderBookLevel[4];
         snapshot.FillBids(bids, 4);
         snapshot.FillAsks(asks, 4);
         for (var i = 0; i < 4; i++)
