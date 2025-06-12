@@ -1,7 +1,7 @@
 ﻿using Banana.Backtest.Common.Models.Root;
-using Banana.Backtest.CryptoConverter.Extensions;
+using Banana.Backtest.Crypto.Core.Extensions;
 
-namespace Banana.Backtest.CryptoConverter.Services.Models.Tardis;
+namespace Banana.Backtest.Crypto.Core.Catalog.Models.Tardis;
 
 public class TardisInstrumentInfo
 {

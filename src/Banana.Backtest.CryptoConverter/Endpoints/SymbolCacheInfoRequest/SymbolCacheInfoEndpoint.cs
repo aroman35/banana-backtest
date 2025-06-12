@@ -1,11 +1,11 @@
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.Root;
-using Banana.Backtest.CryptoConverter.Services;
+using Banana.Backtest.Crypto.Core.Abstractions;
 using FastEndpoints;
 
 namespace Banana.Backtest.CryptoConverter.Endpoints.SymbolCacheInfoRequest;
 
-public class SymbolCacheInfoEndpoint(CatalogRepository catalogRepositoryRepository) : Endpoint<SymbolCacheInfoQuery, SymbolCacheInfoResponse>
+public class SymbolCacheInfoEndpoint(ICatalogue catalogue) : Endpoint<SymbolCacheInfoQuery, SymbolCacheInfoResponse>
 {
     public override void Configure()
     {
@@ -17,7 +17,7 @@ public class SymbolCacheInfoEndpoint(CatalogRepository catalogRepositoryReposito
     {
         var symbol = Symbol.Parse(request.Symbol);
 
-        var hashes = await catalogRepositoryRepository
+        var hashes = await catalogue
             .GetCompleteMetaForSymbol(symbol)
             .OrderByDescending(x => x.Date)
             .ToArrayAsync(cancellationToken: cancellationToken);

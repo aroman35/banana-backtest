@@ -3,9 +3,9 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.Root;
-using Banana.Backtest.CryptoConverter.Extensions;
+using Banana.Backtest.Crypto.Core.Catalog.Models.Tardis;
+using Banana.Backtest.Crypto.Core.Extensions;
 using Banana.Backtest.CryptoConverter.Options;
-using Banana.Backtest.CryptoConverter.Services.Models.Tardis;
 using Flurl;
 using Microsoft.Extensions.Options;
 

@@ -1,4 +1,4 @@
-namespace Banana.Backtest.CryptoConverter.Services.Models.Tardis;
+namespace Banana.Backtest.Crypto.Core.Catalog.Models.Tardis;
 
 public class DatasetInfo
 {

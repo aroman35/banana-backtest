@@ -2,6 +2,9 @@ using System.Globalization;
 using System.Text.Json.Serialization;
 using Banana.Backtest.Common.Models.MarketData;
 using Banana.Backtest.Common.Models.Options;
+using Banana.Backtest.Crypto.Core.Abstractions;
+using Banana.Backtest.Crypto.Core.Catalog;
+using Banana.Backtest.Crypto.Core.Options;
 using Banana.Backtest.CryptoConverter.Converters;
 using Banana.Backtest.CryptoConverter.Extensions;
 using Banana.Backtest.CryptoConverter.Options;
@@ -60,7 +63,7 @@ builder.Services
 builder.Services.ConfigureHangfire(builder.Configuration);
 
 builder.Services.AddSingleton<ParsersProvider>();
-builder.Services.AddSingleton<CatalogRepository>();
+builder.Services.AddSingleton<ICatalogue, Catalogue>();
 builder.Services.AddScoped<MetaBuildJobLauncher>();
 builder.Services.AddScoped<ReconciliationJob>();
 builder.Services.AddScoped<RefreshInstrumentsJob>();

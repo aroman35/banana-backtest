@@ -1,6 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-
-namespace Banana.Backtest.Common.Models.MPerformance;
+﻿namespace Banana.Backtest.Common.Models.MPerformance;
 
 /// <summary>
 /// One side of the order book.

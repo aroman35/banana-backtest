@@ -1,6 +1,6 @@
 using Banana.Backtest.Common.Models.Root;
 
-namespace Banana.Backtest.CryptoConverter.Services.Models.Tardis;
+namespace Banana.Backtest.Crypto.Core.Catalog.Models.Tardis;
 
 public class InstrumentInfo
 {

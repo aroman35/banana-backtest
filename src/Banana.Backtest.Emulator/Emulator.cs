@@ -16,7 +16,7 @@ public unsafe class Emulator : IDisposable
     private readonly IMarketDataCacheReader<TradeUpdate> _tradesCache;
     private readonly ILogger _logger;
     private readonly OrderBook _orderBook;
-    private readonly LazyStrategyWrapper _emulatorGateway;
+    private readonly IStrategy _emulatorGateway;
     private readonly SortedDictionary<double, UserOrder> _userBids = new();
     private readonly SortedDictionary<double, UserOrder> _userAsks = new();
     private long _currentTimestamp;

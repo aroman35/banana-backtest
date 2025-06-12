@@ -1,4 +1,5 @@
 using System.Globalization;
+using Banana.Backtest.Crypto.Core.Options;
 using Banana.Backtest.CryptoConverter.Options;
 using Banana.Backtest.CryptoConverter.Scheduler;
 using Hangfire;

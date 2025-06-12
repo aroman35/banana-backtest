@@ -1,59 +1,57 @@
 ﻿using System.Threading.Channels;
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.MarketData;
-using Banana.Backtest.Common.Models.Root;
 using Banana.Backtest.Common.Services;
 using Banana.Backtest.Emulator.Abstractions;
-using Banana.Backtest.Emulator.Contracts;
+using Banana.Backtest.Launcher.Options;
+using Banana.Backtest.Launcher.Steps.Common;
 using Microsoft.Extensions.Options;
-using Serilog;
 
-namespace Banana.Backtest.Emulator.Services;
+namespace Banana.Backtest.Launcher.Steps;
 
-/// <summary>
-/// Сервис чтения и дальнейшей маршрутизации рыночных данных
-/// </summary>
-public class MarketDataProvider
+public class MarketDataStreamingStep : IBacktestStep
 {
     private readonly ILogger _logger;
     private readonly IMarketDataCacheReader<LevelUpdate> _levelUpdatesCache;
     private readonly IMarketDataCacheReader<TradeUpdate> _tradesCache;
     private readonly ChannelWriter<MarketDataItem<LevelUpdate>> _levelUpdatesFeed;
     private readonly ChannelWriter<MarketDataItem<TradeUpdate>> _tradesFeed;
-
-    private long _currentTimestamp;
     private readonly IChannelsProvider _channelsProvider;
+    private readonly IOptions<StrategyOptions> _strategyOptions;
+    private readonly TaskCompletionSource _streamingStarted = new();
     private readonly MarketDataHash _hash;
 
     private int _tradesSent;
     private int _levelUpdatesSent;
+    private long _currentTimestamp;
 
-    /// <summary>
-    /// Сервис чтения и дальнейшей маршрутизации рыночных данных
-    /// </summary>
-    /// <param name="channelsProvider">Поставщик каналов</param>
-    /// <param name="settings">Настройки</param>
-    /// <param name="logger">Логгер</param>
-    public MarketDataProvider(
+    public MarketDataStreamingStep(
         IChannelsProvider channelsProvider,
-        IOptions<MarketDataSettings> settings,
-        ILogger logger)
+        ILogger logger,
+        IOptions<MarketDataSourcesOptions> marketDataSourcesOptions,
+        IOptions<StrategyOptions> strategyOptions)
     {
-        _logger = logger.ForContext<MarketDataProvider>();
-        var symbol = Symbol.Create(Asset.Get(settings.Value.Ticker), Asset.Get(settings.Value.ClassCode), settings.Value.Exchange);
-        _hash = MarketDataHash.Create(symbol, settings.Value.TradeDate);
+        _strategyOptions = strategyOptions;
+        _logger = logger.ForContext<MarketDataStreamingStep>();
+        _hash = MarketDataHash.Create(strategyOptions.Value.SymbolParsed, strategyOptions.Value.TradeDate);
         _channelsProvider = channelsProvider;
-        _levelUpdatesCache = MarketDataCacheAccessorProvider.CreateReader<LevelUpdate>(settings.Value.MarketDataDirectory, _hash.For(FeedType.LevelUpdates), true);
-        _tradesCache = MarketDataCacheAccessorProvider.CreateReader<TradeUpdate>(settings.Value.MarketDataDirectory, _hash.For(FeedType.Trades), true);
+        _levelUpdatesCache = MarketDataCacheAccessorProvider.CreateReader<LevelUpdate>(
+            marketDataSourcesOptions.Value.CacheDirectory,
+            _hash.For(FeedType.LevelUpdates),
+            marketDataSourcesOptions.Value.UseMmf);
+        _tradesCache = MarketDataCacheAccessorProvider.CreateReader<TradeUpdate>(
+            marketDataSourcesOptions.Value.CacheDirectory,
+            _hash.For(FeedType.Trades),
+            marketDataSourcesOptions.Value.UseMmf);
         _levelUpdatesFeed = channelsProvider.GetMarketDataSourceChannel<LevelUpdate>();
         _tradesFeed = channelsProvider.GetMarketDataSourceChannel<TradeUpdate>();
     }
 
-    /// <summary>
-    /// Метод чтения и процессинга рыночных данных
-    /// </summary>
-    /// <param name="cancellationToken"></param>
-    public async Task ExecuteStreamingAsync(CancellationToken cancellationToken)
+    public int Priority => 3;
+    public bool IsBackground => true;
+    public Task IsInitialized => Task.CompletedTask;
+
+    public async Task WaitForCompletion(CancellationToken cancellationToken = default)
     {
         _logger.Debug("Streaming is starting for {Hash}", _hash);
         if (_levelUpdatesCache.IsEmpty)
@@ -68,6 +66,7 @@ public class MarketDataProvider
             return;
         }
 
+        _streamingStarted.SetResult();
         foreach (var levelUpdate in _levelUpdatesCache.ContinueReadUntil())
         {
             _levelUpdatesSent++;

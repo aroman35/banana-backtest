@@ -5,6 +5,7 @@ using Banana.Backtest.Common.Extensions;
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.Options;
 using Banana.Backtest.Common.Services;
+using Banana.Backtest.Crypto.Core.Abstractions;
 using Banana.Backtest.CryptoConverter.Parsers;
 using Banana.Backtest.CryptoConverter.Services;
 using Microsoft.Extensions.Options;
@@ -14,7 +15,7 @@ namespace Banana.Backtest.CryptoConverter.Scheduler.Jobs;
 public class MarketDataConverterJob<TMarketDataType>(
     TardisClient tardisClient,
     ParsersProvider parsersProvider,
-    CatalogRepository catalogRepository,
+    ICatalogue catalogue,
     IOptions<MarketDataParserOptions> options,
     ILogger logger)
     where TMarketDataType : unmanaged
@@ -32,7 +33,7 @@ public class MarketDataConverterJob<TMarketDataType>(
         try
         {
             var startedAt = Stopwatch.GetTimestamp();
-            var instrumentInfo = await catalogRepository.GetInstrument(hash.Symbol);
+            var instrumentInfo = await catalogue.GetInstrument(hash.Symbol);
             ArgumentNullException.ThrowIfNull(instrumentInfo);
             _logger.Information("Starting for {Hash}: {Type}", hash, Helpers.FriendlyTypeName<TMarketDataType>());
             await using var tardisStream = await tardisClient.DownloadDatasetFileAsync(hash, instrumentInfo, cancellationToken);
@@ -42,7 +43,7 @@ public class MarketDataConverterJob<TMarketDataType>(
             }
 
             var meta = MarketDataCacheAccessorProvider.ReadMeta<TMarketDataType>(options.Value.OutputDirectory, hash);
-            await catalogRepository.BuildComplete(meta);
+            await catalogue.BuildComplete(meta);
             var timeElapsed = Stopwatch.GetElapsedTime(startedAt);
             _logger.Information(
                 "Market data job complete for {Hash}: {MarketData} in {Elapsed}",

@@ -2,7 +2,7 @@
 using System.ComponentModel;
 using System.Reflection;
 
-namespace Banana.Backtest.CryptoConverter.Extensions;
+namespace Banana.Backtest.Crypto.Core.Extensions;
 
 public static class EnumExtensions
 {

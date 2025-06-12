@@ -49,9 +49,9 @@ public class BacktestMatcher :
     private readonly Task _userOrdersFeedTask;
     private readonly Task _userOrdersCancellationFeedTask;
 
-    private readonly IOptions<MatcherSettings> _settings;
-
     #endregion
+
+    private readonly IOptions<MatcherSettings> _settings;
 
     private long _lastOrderBookUpdateTs;
     private int _levelUpdatesCount;

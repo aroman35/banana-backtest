@@ -16,6 +16,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Banana.Backtest.Common\Banana.Backtest.Common.csproj"/>
+        <ProjectReference Include="..\Banana.Backtest.Crypto.Core\Banana.Backtest.Crypto.Core.csproj" />
     </ItemGroup>
 
     <ItemGroup>

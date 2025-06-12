@@ -1,7 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
-using Banana.Backtest.Common.Models;
-using Banana.Backtest.Common.Models.Root;
 
 namespace Banana.Backtest.Common.Extensions;
 
@@ -103,11 +101,12 @@ public static class Helpers
         return read;
     }
 
-    public static string FriendlyTypeName<T>()
+    public static string FriendlyTypeName(Type type)
     {
-        var type = typeof(T);
         return _typeNameCache.GetOrAdd(type, NameForGenericType);
     }
+
+    public static string FriendlyTypeName<T>() => FriendlyTypeName(typeof(T));
 
     private static string NameForGenericType(Type type)
     {

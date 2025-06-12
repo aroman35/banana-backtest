@@ -1,4 +1,4 @@
-﻿namespace Banana.Backtest.CryptoConverter.Options;
+﻿namespace Banana.Backtest.Crypto.Core.Options;
 
 public class MongoOptions
 {

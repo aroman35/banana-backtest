@@ -1,4 +1,4 @@
-using Banana.Backtest.CryptoConverter.Services.Models.Tardis;
+using Banana.Backtest.Crypto.Core.Catalog.Models.Tardis;
 
 namespace Banana.Backtest.CryptoConverter.Endpoints.ExchangeInfoRequest;
 

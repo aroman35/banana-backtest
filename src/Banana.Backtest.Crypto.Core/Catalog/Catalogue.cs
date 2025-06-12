@@ -1,28 +1,28 @@
 ﻿using System.IO.Compression;
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.Root;
-using Banana.Backtest.CryptoConverter.Options;
-using Banana.Backtest.CryptoConverter.Services.Models.Tardis;
+using Banana.Backtest.Crypto.Core.Abstractions;
+using Banana.Backtest.Crypto.Core.Catalog.Models.Tardis;
+using Banana.Backtest.Crypto.Core.Options;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
-using Serilog.Events;
 using Version = Banana.Backtest.Common.Models.Version;
 
-namespace Banana.Backtest.CryptoConverter.Services;
+namespace Banana.Backtest.Crypto.Core.Catalog;
 
-public class CatalogRepository
+public class Catalogue : ICatalogue
 {
     private readonly IMongoDatabase _database;
     private readonly ILogger _logger;
     private IMongoCollection<MarketDataCacheMetaPersistentModel> MetaCollection => _database.GetCollection<MarketDataCacheMetaPersistentModel>("cache-meta");
     private IMongoCollection<InstrumentInfo> InstrumentsCollection => _database.GetCollection<InstrumentInfo>("instruments");
 
-    public CatalogRepository(IMongoClient mongoClient, IOptions<MongoOptions> options, ILogger logger)
+    public Catalogue(IMongoClient mongoClient, IOptions<MongoOptions> options, ILogger logger)
     {
-        _logger = logger.ForContext<CatalogRepository>();
+        _logger = logger.ForContext<Catalogue>();
         _database = mongoClient.GetDatabase(options.Value.DatabaseName);
         BsonSerializer.RegisterSerializer(SymbolSerializer.Instance);
         BsonSerializer.RegisterSerializer(VersionSerializer.Instance);
