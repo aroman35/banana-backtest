@@ -30,7 +30,8 @@ builder.Services.Configure<HostOptions>(options =>
     options.ShutdownTimeout = TimeSpan.FromSeconds(180);
 });
 
-builder.Services.AddHostedService<ReportsProvider>();
+builder.Services.AddScoped<ReportsProvider>();
+builder.Services.AddHostedService<ReportsProviderService>();
 builder.Services.AddHostedService<UserStreamsLauncher>();
 builder.Services.AddHostedService<TradesStreamLauncher>();
 
