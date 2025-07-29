@@ -5,7 +5,7 @@ using Serilog;
 
 namespace Banana.Backtest.Common.Services;
 
-public class CacheDecompressor<TMarketDataType>(
+public sealed class CacheDecompressor<TMarketDataType>(
     MarketDataHash hash,
     string sourcesDictionary,
     string destinationDictionary, ILogger logger) : IDisposable

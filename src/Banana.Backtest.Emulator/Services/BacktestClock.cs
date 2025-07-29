@@ -138,6 +138,7 @@ public class BacktestClock : TimeProvider, IChannelSubscriber<long>
         /// <inheritdoc />
         public async ValueTask DisposeAsync()
         {
+            Logger.Debug("Disposing");
             Dispose();
             await _timestampsFeedTask;
         }

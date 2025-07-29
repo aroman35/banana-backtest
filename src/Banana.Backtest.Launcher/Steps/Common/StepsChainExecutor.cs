@@ -1,4 +1,6 @@
 ﻿using Banana.Backtest.Common.Extensions;
+using Banana.Backtest.Launcher.Extensions;
+
 // ReSharper disable ConvertToUsingDeclaration
 
 namespace Banana.Backtest.Launcher.Steps.Common;
@@ -14,44 +16,48 @@ public class StepsChainExecutor(
     {
         using (var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
         {
-            await using (cancellationTokenSource.Token.Register(callback: static () => { }))
+            await using (var scope = scopeFactory.CreateAsyncBacktestScope())
             {
-                await using (var scope = scopeFactory.CreateAsyncScope())
+                var backgroundSteps = new List<Task>();
+                var stepsSequence = scope
+                    .GetRequiredService<IEnumerable<IBacktestStep>>()
+                    .OrderBy(x => x.Priority);
+                foreach (var step in stepsSequence)
                 {
-                    var backgroundSteps = new List<Task>();
-                    var stepsSequence = scope.ServiceProvider.GetRequiredService<IEnumerable<IBacktestStep>>().OrderBy(x => x.Priority);
-                    foreach (var step in stepsSequence)
+                    _logger.Information("Launching step [{Priority}]: {Name}", step.Priority,
+                        Helpers.FriendlyTypeName(step.GetType()));
+                    if (step.IsBackground)
                     {
-                        _logger.Information("Launching step [{Priority}]: {Name}", step.Priority, Helpers.FriendlyTypeName(step.GetType()));
-                        if (step.IsBackground)
-                        {
-                            var stepTask = await LaunchBackgroundStep(step, cancellationTokenSource);
-                            backgroundSteps.Add(stepTask);
-                            continue;
-                        }
-
-                        try
-                        {
-                            await step.WaitForCompletion(cancellationTokenSource.Token);
-                        }
-                        catch (Exception exception)
-                        {
-                            _logger.Error(exception, "Step {Name} failed", Helpers.FriendlyTypeName(step.GetType()));
-                            await cancellationTokenSource.CancelAsync();
-                            break;
-                        }
-                        finally
-                        {
-                            _logger.Information("Step [{Priority}]: {Name} finished", step.Priority, Helpers.FriendlyTypeName(step.GetType()));
-                        }
+                        var stepTask = LaunchBackgroundStep(step, cancellationTokenSource);
+                        backgroundSteps.Add(stepTask);
+                        continue;
                     }
 
-                    await Task.WhenAll(backgroundSteps);
-                    _logger.Information("Backtest finished");
+                    try
+                    {
+                        await step.WaitForCompletion(cancellationTokenSource.Token);
+                    }
+                    catch (Exception exception)
+                    {
+                        _logger.Error(exception, "Step {Name} failed", Helpers.FriendlyTypeName(step.GetType()));
+                        await cancellationTokenSource.CancelAsync();
+                        break;
+                    }
+                    finally
+                    {
+                        _logger.Information(
+                            "Step [{Priority}]: {Name} finished",
+                            step.Priority,
+                            Helpers.FriendlyTypeName(step.GetType()));
+                    }
                 }
-                applicationLifetime.StopApplication();
+
+                await Task.WhenAll(backgroundSteps);
+                _logger.Information("Backtest finished");
             }
         }
+
+        // applicationLifetime.StopApplication();
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
@@ -59,7 +65,8 @@ public class StepsChainExecutor(
         return Task.CompletedTask;
     }
 
-    private async Task<Task> LaunchBackgroundStep(IBacktestStep backtestStep, CancellationTokenSource cancellationTokenSource)
+    private async Task<Task> LaunchBackgroundStep(IBacktestStep backtestStep,
+        CancellationTokenSource cancellationTokenSource)
     {
         var stepLauncher = Task.Factory.StartNew(async taskCancellationSource =>
             {

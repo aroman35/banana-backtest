@@ -1,4 +1,5 @@
 ﻿using System.Threading.Channels;
+using Banana.Backtest.Common.Extensions;
 using Banana.Backtest.Common.Models;
 using Banana.Backtest.Common.Models.MarketData;
 using Banana.Backtest.Common.Services;
@@ -73,7 +74,7 @@ public class MarketDataStreamingStep : IBacktestStep
             try
             {
                 Interlocked.CompareExchange(ref _currentTimestamp, levelUpdate.Timestamp, 0L);
-                _logger.Verbose("Sending level update at timestamp {Timestamp}", levelUpdate.Timestamp);
+                _logger.Verbose("Sending level update at timestamp {Timestamp}", levelUpdate.Timestamp.AsDateTime());
                 await _channelsProvider.TimestampsFeed.Writer.WriteAsync(levelUpdate.Timestamp, cancellationToken);
                 if (levelUpdate.Timestamp > _currentTimestamp)
                 {

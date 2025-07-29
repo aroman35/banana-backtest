@@ -1,4 +1,7 @@
 ﻿using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using System.Threading.Channels;
 using Banana.Backtest.Common.Extensions;
 using Banana.Backtest.Common.Models;
@@ -115,6 +118,7 @@ public class BacktestMatcher :
         MarketDataItem<LevelUpdate> channelData,
         CancellationToken cancellationToken)
     {
+        using var transaction = BacktestTransaction.Create(_timeProvider);
         ++_levelUpdatesCount;
         var userOrdersCollection = channelData.Item.IsBid ? _userBids : _userAsks;
         var userQuantity = 0.0D;
@@ -145,16 +149,18 @@ public class BacktestMatcher :
         _orderBook.UpdateOrder(channelData);
         var orderBookUpdated = _lastOrderBookUpdateTs != channelData.Timestamp;
         _lastOrderBookUpdateTs = channelData.Timestamp;
+        if (channelData.Item.IsSnapshot)
+            return;
         // TODO: Отправить обновление только если изменения произошли на доступных уровнях!!!
         if (orderBookUpdated)
         {
             _orderBooksCount++;
             // Если дельта цен обновилась, то топ уровни поменялись
             if (!bestBid().Price.IsEquals(_orderBook.BestBid().Price))
-                await ExecuteUserOrdersMatching(Side.Short, cancellationToken);
+                await ExecuteUserOrdersMatching(Side.Short, transaction, cancellationToken);
 
             if (!bestAsk().Price.IsEquals(_orderBook.BestAsk().Price))
-                await ExecuteUserOrdersMatching(Side.Long, cancellationToken);
+                await ExecuteUserOrdersMatching(Side.Long, transaction, cancellationToken);
 
             // Прежде чем отправлять следующий трейд надо убедиться что все предыдущие буки обработались
             while (_tradesCache.TryPeek(out var trade) && trade.Timestamp <= channelData.Timestamp)
@@ -378,34 +384,71 @@ public class BacktestMatcher :
     /// Процесс сопоставления выставленных пользовательских лимитных заявок наличию ликвидности в стакане
     /// </summary>
     /// <param name="side">Направление сопоставления</param>
+    /// <param name="transaction">Транзакция тиковой операции</param>
     /// <param name="cancellationToken">Токен отмены</param>
-    private async ValueTask ExecuteUserOrdersMatching(Side side, CancellationToken cancellationToken)
+    private async ValueTask ExecuteUserOrdersMatching(Side side, IBacktestTransaction transaction, CancellationToken cancellationToken = default)
     {
-        var ordersCollection = side is Side.Long ? _userBids : _userAsks;
-        var userPrices = ordersCollection.Keys;
-        foreach (var userPrice in userPrices)
+        using (var innerTransaction = BacktestTransaction.Join(transaction))
         {
-            var bestOffer = _orderBook.BestOffer(Side.Long);
-            if ((userPrice - bestOffer.Price * (int)side).IsGreaterOrEquals(0.0D))
+            try
             {
-                var userOrdersIndex = ordersCollection[userPrice];
-                if (userOrdersIndex.Count == 0)
-                    continue;
-                foreach (var clientOrderId in userOrdersIndex)
+                var userOrdersCollection = UserOrders(side);
+                var bestOffer = _orderBook.BestOffer(side.Revert());
+                var bestOfferPrice = bestOffer.Price;
+                var bestOfferQuantity = bestOffer.Quantity;
+
+                foreach (var userPrice in userOrdersCollection.Keys)
                 {
-                    if (_userOrdersStorage.TryGetValue(clientOrderId, out var order))
+                    if (bestOfferQuantity.IsLowerOrEquals(0.0))
                     {
-                        var executedQuantity = Math.Min(order.RemainingQuantity, bestOffer.Quantity);
-                        var execution = UserExecution.FillOrder(ref order, bestOffer.Price, executedQuantity, _timeProvider.GetTimestamp(), true);
-                        await OrderExecuted(order, execution, cancellationToken);
+                        // уровень закрыт
+                        return;
+                    }
+                    if ((userPrice - bestOfferPrice * (int)side).IsGreaterOrEquals(0.0))
+                    {
+                        var userOrdersIndex = userOrdersCollection[userPrice];
+                        if (userOrdersIndex.Count == 0)
+                            continue;
+
+                        foreach (var clientOrderId in userOrdersIndex)
+                        {
+                            if (!_userOrdersStorage.TryGetValue(clientOrderId, out var order))
+                            {
+                                Logger.Warning("Unexpected client order id was found in index");
+                                continue;
+                            }
+
+                            var executingQuantity = Math.Min(order.RemainingQuantity, bestOfferQuantity);
+                            if (!PreTradeControl(ref order))
+                            {
+                                innerTransaction.Rollback(PreTradeControlException.ForOrder(order));
+                                Logger.Warning("Pre-trade fired in backtest mode");
+                                return;
+                            }
+
+                            var execution = UserExecution.FillOrder(ref order, bestOfferPrice, executingQuantity, _timeProvider.GetTimestamp(), true);
+                            await OrderExecuted(order, execution, cancellationToken);
+                            bestOfferQuantity -= executingQuantity;
+                        }
+                    }
+                    else
+                    {
+                        // нет перекрытия
+                        return;
                     }
                 }
             }
-            else
+            catch (Exception exception)
             {
-                return;
+                Logger.Error(exception, "Unhandled exception while matching user orders");
+                innerTransaction.Rollback(exception);
             }
         }
+    }
+
+    private bool PreTradeControl(ref OrderInfo order)
+    {
+        return true;
     }
 
     /// <summary>
@@ -437,6 +480,17 @@ public class BacktestMatcher :
         }
     }
 
+    private SortedDictionary<double, HashSet<Guid>> UserOrders(Side side)
+    {
+        var ordersCollection = side is Side.Long ? _userBids : _userAsks;
+        return ordersCollection;
+    }
+
+    private List<double> UserPrices(Side side)
+    {
+        return UserOrders(side).Keys.ToList();
+    }
+
     #region Channels
 
     /// <inheritdoc />
@@ -459,24 +513,30 @@ public class BacktestMatcher :
     public async ValueTask DisposeAsync()
     {
         // Сначала дожидаемся окончания обработки и только после этого отписываемся сами
+        Logger.Information("Stopping matcher 1/3");
         await Task.WhenAll(
             Task.Run(async () => _ = await _userExecutionsFeed.WaitToWriteAsync() && _userExecutionsFeed.TryComplete()),
             Task.Run(async () => _ = await _orderStatusesFeed.WaitToWriteAsync() && _orderStatusesFeed.TryComplete()),
             Task.Run(async () => _ = await _marketDataFeed.WaitToWriteAsync() && _marketDataFeed.TryComplete())
             );
+        Logger.Information("Stopping matcher 2/3");
         await Task.WhenAll(
             _sourceTradesFeed.Completion,
             _sourceLevelUpdatesFeed.Completion,
             _userOrdersFeed.Completion,
             _userOrdersCancellationFeed.Completion
             );
+        Logger.Information("Stopping matcher 3/3");
         await Task.WhenAll(
             _tradesFeedTask,
             _levelUpdatesFeedTask,
             _userOrdersFeedTask,
             _userOrdersCancellationFeedTask
             );
-        Logger.Information("Trades count: {TradesCount} level updates count {LevelUpdatesCount} order-books count: {OrderBooksCount}", _tradesCount, _levelUpdatesCount, _orderBooksCount);
-        Logger.Debug("Disposed");
+        Logger.Information(
+            "Matcher stopped and disposed. Trades count: {TradesCount} level updates count {LevelUpdatesCount} order-books count: {OrderBooksCount}",
+            _tradesCount,
+            _levelUpdatesCount,
+            _orderBooksCount);
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using Banana.Backtest.Common.Models;
 
 namespace Banana.Backtest.Common.Extensions;
 
@@ -117,5 +118,10 @@ public static class Helpers
         var cleanName = Regex.Replace(type.Name, "`\\d+", string.Empty, RegexOptions.Compiled);
 
         return $"{cleanName}<{string.Join(',', args)}>";
+    }
+
+    public static Side Revert(this Side side)
+    {
+        return (Side)(-(int)side);
     }
 }

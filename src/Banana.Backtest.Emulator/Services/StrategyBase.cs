@@ -161,9 +161,18 @@ public abstract class StrategyBase :
     /// </summary>
     public async ValueTask DisposeAsync()
     {
+        Logger.Debug("Disposing");
         await Task.WhenAll(
-            Task.Run(async () => _ = await _ordersFeed.WaitToWriteAsync() && _ordersFeed.TryComplete()),
-            Task.Run(async () => _ = await _ordersCancellationFeed.WaitToWriteAsync() && _ordersCancellationFeed.TryComplete())
+            Task.Run(async () =>
+            {
+                _ = await _ordersFeed.WaitToWriteAsync() && _ordersFeed.TryComplete();
+                Logger.Debug("Orders feed closed");
+            }),
+            Task.Run(async () =>
+            {
+                _ = await _ordersCancellationFeed.WaitToWriteAsync() && _ordersCancellationFeed.TryComplete();
+                Logger.Debug("Cancellation feed closed");
+            })
         );
         await StrategyCompletion;
         Logger.Debug("Disposed");

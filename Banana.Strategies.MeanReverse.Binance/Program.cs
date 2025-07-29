@@ -5,6 +5,7 @@ using Banana.Strategies.MeanReverse.Binance.Execution;
 using Banana.Strategies.MeanReverse.Binance.Extensions;
 using Banana.Strategies.MeanReverse.Binance.Extensions.Launchers;
 using Banana.Strategies.MeanReverse.Binance.Extensions.Launchers.Cache;
+using Banana.Strategies.MeanReverse.Binance.Persistence;
 using Banana.Strategies.MeanReverse.Binance.UserData.Positions;
 using Binance.Net.Objects.Models.Futures;
 using Binance.Net.Objects.Models.Futures.Socket;
@@ -29,6 +30,7 @@ builder.Services.Configure<HostOptions>(options =>
     options.ShutdownTimeout = TimeSpan.FromSeconds(180);
 });
 
+builder.Services.AddHostedService<ReportsProvider>();
 builder.Services.AddHostedService<UserStreamsLauncher>();
 builder.Services.AddHostedService<TradesStreamLauncher>();
 
